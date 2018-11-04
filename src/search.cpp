@@ -60,7 +60,7 @@ int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& h
 
 	// History heuristic
 	int historyScore = historyMoves[b.turn][pieceType(b.squares[m.from])][m.to];
-	if (historyScore >= historyMax) { 
+	if (historyScore >= historyMax || historyScore <= -historyMax) { 
 		historyScore /= 2;
 		reduceHistory(); 
 	}
@@ -110,11 +110,17 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 	if (timeOver(si)) return alpha;
 
 	bool isRoot = (!ply);
+	bool nearMate = (alpha <= MATED_IN_MAX || alpha >= MATE_IN_MAX || beta <= MATED_IN_MAX || beta >= MATE_IN_MAX);
 	if (ply > si.seldepth) si.seldepth = ply;
+
+	int ttEval = NO_VALUE;
 
 	if (!isRoot) {
 		// Check for draw
-		if (drawnByRepetition(b)) return 0;
+		if (drawnByRepetition(b)) {
+			storeTT(b.key, MAX_PLY, 0, TT_EXACT, ttEval, ply);
+			return 0;
+		}
 
 		// Mate distance pruning
 		int mAlpha = (alpha > -MATE_SCORE + ply) ? alpha : -MATE_SCORE + ply;
@@ -122,8 +128,10 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 		if (mAlpha >= mBeta) return mAlpha;
 
 		// Probe transposition table
-		int TTScore = probeTT(b.key, depth, alpha, beta, si);
-		if (TTScore != NO_VALUE) return TTScore;
+		int TTScore = probeTT(b.key, depth, alpha, beta, ply, si, ttEval);
+		if (TTScore != NO_VALUE) {
+			return TTScore;
+		}
 	}
 
 	bool isInCheck = inCheck(b, b.turn);
@@ -141,20 +149,20 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 		}
 	}
 
-	int score;
-	int TTFlag = TT_ALPHA;
-	float phase = getPhase(b);
-	Move bestMove = NO_MOVE;
-
-	int eval = evaluate(b, b.turn);
+	int eval = (ttEval == NO_VALUE) ? evaluate(b, b.turn) : ttEval;
 
 	// Reverse futility pruning
 	if (depth <= futilityMaxDepth && !isInCheck && !isRoot && eval - futilityMargin * depth > beta) {
 		return eval - futilityMargin * depth;
 	}
 
+	int score;
+	int TTFlag = TT_ALPHA;
+	Move bestMove = NO_MOVE;
+	float phase = getPhase(b);
+
 	// Null move pruning
-	if (allowNull && depth >= nullMoveMinDepth && phase > nullMovePhaseLimit && !isInCheck) {
+	if (allowNull && depth >= nullMoveMinDepth && phase > nullMovePhaseLimit && !isInCheck && !nearMate) {
 		auto u = makeNullMove(b);
 		int nullMoveR = nullMoveBaseR + depth / 6;
 		nullMoveR = std::min(nullMoveR, 4);
@@ -163,11 +171,8 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 		if (score >= beta) return score;
 	}
 
-	// Futility pruning
-	bool fPrune = false;
-	if (depth <= futilityMaxDepth && !isInCheck && !isRoot) {
-		fPrune = (eval + futilityMargin * depth <= alpha);
-	}
+	// Futility pruning flag
+	bool fPrune = (depth <= futilityMaxDepth && !isInCheck && !isRoot && eval + futilityMargin * depth <= alpha);
 
 	// Generate all moves
 	auto moves = genAllMoves(b);
@@ -178,7 +183,8 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 	std::sort(scoredMoves.begin(), scoredMoves.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
 
 	for (int i = 0, size = scoredMoves.size(); i < size; ++i) {
-		if (timeOver(si)) return alpha;
+		// Only call timeOver at higher depths to reduce calls to clock()
+		if (depth >= 5 && timeOver(si)) return alpha;
 
 		Move m = scoredMoves[i].first;
 		bool isCapture = (b.squares[m.to] != EMPTY || m.flag == EP_MOVE);
@@ -186,31 +192,35 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 		bool isNoisy = (isCapture || isPromotion);
 		bool isKiller = (m == killers[0][ply] || m == killers[1][ply]);
 
-		// Make move to see whether the move would check the enemy king
-		// Not an efficient implementation but works for now
+		// Futility pruning
+		if (fPrune && !isNoisy && !isKiller && movesSearched > 0) {
+			continue;
+		}
+
+		// Late move pruning
+		if (depth <= lateMovePruningMaxDepth && movesSearched >= lateMovePruningMove * depth && !isNoisy && !isInCheck) {
+			continue;
+		}
+
 		auto u = makeMove(b, m);
 		if (inCheck(b, !b.turn)) {
 			undoMove(b, m, u);
 			continue;
 		}
-		bool wouldCheck = inCheck(b, b.turn);
-		undoMove(b, m, u);
-
-		// Futility pruning
-		// !isRoot and !isInCheck is implicitly checked by fPrune flag
-		if (fPrune && !wouldCheck && !isNoisy && !isKiller && movesSearched > 0) {
-			continue;
-		}
-
-		makeMove(b, m);
 
 		score = alpha + 1;
+
 		// Late move reduction
-		if (depth >= lateMoveMinDepth && movesSearched >= lateMoveMinMove && !isInCheck && !isNoisy && !wouldCheck && !isKiller) {
-			int lateMoveR = lateMoveBaseR + movesSearched / 24 + depth / 8;
-			lateMoveR = std::min(lateMoveR, depth - 1);  // Do not drop directly into qsearch
+		if (depth >= lateMoveMinDepth && movesSearched >= lateMoveMinMove && !isNoisy && !isInCheck) {
+			int lateMoveR = lateMoveBaseR + (depth / 3) * (movesSearched >= 6);
+
+			// Decrease reduction if killer move
+			if (isKiller) lateMoveR -= 1;
+
+			lateMoveR = std::max(0, std::min(lateMoveR, depth - 1));  // Do not drop directly into qsearch
 			score = -search(b, depth - lateMoveR - 1, ply + 1, -alpha - 1, -alpha, si);
 		}
+
 		if (score > alpha) score = -search(b, depth - 1, ply + 1, -beta, -alpha, si);
 
 		undoMove(b, m, u);
@@ -219,7 +229,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 		movesSearched++;
 
 		if (score >= beta) {
-			storeTT(b.key, depth, beta, TT_BETA);
+			storeTT(b.key, depth, beta, TT_BETA, eval, ply);
 
 			// Update killers
 			if (!isNoisy && m != killers[0][ply]) {
@@ -228,7 +238,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 			}
 
 			// Update history score
-			historyMoves[b.turn][pieceType(b.squares[m.from])][m.to] += depth * depth;
+			if (!isNoisy) historyMoves[b.turn][pieceType(b.squares[m.from])][m.to] += depth * depth;
 
 			// Update move ordering info
 			si.failHigh++;
@@ -245,10 +255,10 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 	}
 
 	if (!movesSearched) {
-		return (inCheck(b, b.turn)) ? -MATE_SCORE + ply : 0;
+		return (isInCheck) ? -MATE_SCORE + ply : 0;
 	}
 
-	storeTT(b.key, depth, alpha, TTFlag);
+	storeTT(b.key, depth, alpha, TTFlag, eval, ply);
 	tt[b.key].move = bestMove;
 
 	if (isRoot) {
@@ -263,9 +273,15 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si) {
 	if (timeOver(si)) return alpha;
 	if (ply > si.seldepth) si.seldepth = ply;
 
+	// Check for draw
+	if (drawnByRepetition(b)) return 0;
+
 	int eval = evaluate(b, b.turn);
 	if (eval >= beta) return beta;
 	if (eval > alpha) alpha = eval;
+
+	// Delta pruning
+	if (eval + greatestTacticalGain(b) + deltaMargin < alpha) return eval;
 
 	auto noisyMoves = genNoisyMoves(b);
 	if (noisyMoves.empty()) return eval;
@@ -361,6 +377,21 @@ int SEEMoveVal(const Board& b, const Move& m) {
 	int val = (piece != EMPTY) ? SEEValues[piece] : 0;
 	if (m.flag >= PROMOTION_KNIGHT) val += SEEValues[pieceType(m.flag - 2)] - SEEValues[PAWN];
 	if (m.flag == EP_MOVE) val += SEEValues[PAWN];
+	return val;
+}
+
+int greatestTacticalGain(const Board& b) {
+	int val = SEEValues[PAWN];
+	const uint64_t enemy = b.colors[!b.turn];
+	for (int i = QUEEN; i > PAWN; --i) {
+		if (enemy & b.pieces[i]) {
+			val = SEEValues[i];
+			break;
+		}
+	}
+	if (b.pieces[PAWN] & b.colors[b.turn] & ((b.turn == WHITE) ? RANK_7 : RANK_2)) {
+		val += SEEValues[QUEEN] - SEEValues[PAWN];
+	}
 	return val;
 }
 

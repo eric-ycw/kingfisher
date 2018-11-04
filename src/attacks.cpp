@@ -102,12 +102,12 @@ void initAttacks() {
 	}
 }
 
-uint64_t getBishopAttacks(const Board& b, int color, int sqr) {
+uint64_t getBishopAttacks(const Board& b, const uint64_t& valid, int color, int sqr) {
 	uint64_t finalAttacks = 0ull;
 	for (int i = 0; i < 4; ++i) {
 		const uint64_t attacks = bishopAttacks[sqr][i];
 		const uint64_t blockers = ~b.colors[NO_COLOR] & attacks;
-		finalAttacks |= ((!blockers) ? attacks : (attacks ^ bishopAttacks[generalBitscan(blockers, bishopDirs[i])][i]) & ~b.colors[color]);
+		finalAttacks |= ((!blockers) ? attacks : (attacks ^ bishopAttacks[generalBitscan(blockers, bishopDirs[i])][i]) & valid);
 	}
 	return finalAttacks;
 }
@@ -122,12 +122,12 @@ uint64_t getBishopAttacks(const uint64_t& occupied, int sqr) {
 	return finalAttacks;
 }
 
-uint64_t getRookAttacks(const Board& b, int color, int sqr) {
+uint64_t getRookAttacks(const Board& b, const uint64_t& valid, int color, int sqr) {
 	uint64_t finalAttacks = 0ull;
 	for (int i = 0; i < 4; ++i) {
 		const uint64_t attacks = rookAttacks[sqr][i];
 		const uint64_t blockers = ~b.colors[NO_COLOR] & attacks;
-		finalAttacks |= ((!blockers) ? attacks : (attacks ^ rookAttacks[generalBitscan(blockers, rookDirs[i])][i]) & ~b.colors[color]);
+		finalAttacks |= ((!blockers) ? attacks : (attacks ^ rookAttacks[generalBitscan(blockers, rookDirs[i])][i]) & valid);
 	}
 	return finalAttacks;
 }
@@ -142,30 +142,32 @@ uint64_t getRookAttacks(const uint64_t& occupied, int sqr) {
 	return finalAttacks;
 }
 
-uint64_t getQueenAttacks(const Board& b, int color, int sqr) {
+uint64_t getQueenAttacks(const Board& b, const uint64_t& valid, int color, int sqr) {
 	uint64_t finalAttacks = 0ull;
 	for (int i = 0; i < 8; ++i) {
 		const uint64_t attacks = queenAttacks[sqr][i];
 		const uint64_t blockers = ~b.colors[NO_COLOR] & attacks;
-		finalAttacks |= ((!blockers) ? attacks : (attacks ^ queenAttacks[generalBitscan(blockers, queenDirs[i])][i]) & ~b.colors[color]);
+		finalAttacks |= ((!blockers) ? attacks : (attacks ^ queenAttacks[generalBitscan(blockers, queenDirs[i])][i]) & valid);
 	}
 	return finalAttacks;
 }
 
 bool squareIsAttacked(const Board& b, int color, int sqr) {
-	uint64_t enemy = b.colors[!color];
+	const uint64_t enemy = b.colors[!color];
+	const uint64_t valid = ~b.colors[color];
 	return (pawnAttacks[sqr][color] & enemy & b.pieces[PAWN])
 		|| (knightAttacks[sqr] & enemy & b.pieces[KNIGHT])
-		|| (getBishopAttacks(b, color, sqr) & enemy & (b.pieces[BISHOP] | b.pieces[QUEEN]))
-		|| (getRookAttacks(b, color, sqr) & enemy & (b.pieces[ROOK] | b.pieces[QUEEN]))
+		|| (getBishopAttacks(b, valid, color, sqr) & enemy & (b.pieces[BISHOP] | b.pieces[QUEEN]))
+		|| (getRookAttacks(b, valid, color, sqr) & enemy & (b.pieces[ROOK] | b.pieces[QUEEN]))
 		|| (kingAttacks[sqr] & enemy & b.pieces[KING]);
 }
 
 uint64_t squareAttackers(const Board& b, int color, int sqr) {
+	const uint64_t valid = ~b.colors[color];
 	return ((pawnAttacks[sqr][color] & b.pieces[PAWN])
 		 | (knightAttacks[sqr] & b.pieces[KNIGHT])
-		 | (getBishopAttacks(b, color, sqr) & (b.pieces[BISHOP] | b.pieces[QUEEN]))
-		 | (getRookAttacks(b, color, sqr) & (b.pieces[ROOK] | b.pieces[QUEEN]))
+		 | (getBishopAttacks(b, valid, color, sqr) & (b.pieces[BISHOP] | b.pieces[QUEEN]))
+		 | (getRookAttacks(b, valid, color, sqr) & (b.pieces[ROOK] | b.pieces[QUEEN]))
 		 | (kingAttacks[sqr] & b.pieces[KING])) & b.colors[!color];
 }
 

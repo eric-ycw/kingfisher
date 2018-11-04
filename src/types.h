@@ -6,6 +6,7 @@
 #include <time.h>
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <random>
 #include <string>
@@ -21,7 +22,7 @@ enum PieceType { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING };
 enum Piece {
 	W_PAWN, W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN, W_KING,
 	B_PAWN, B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN, B_KING,
-	EMPTY = 12
+	EMPTY
 };
 
 enum Square {

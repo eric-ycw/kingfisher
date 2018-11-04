@@ -81,6 +81,11 @@ int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, in
 	// Phalanx pawns
 	eval += (countBits(pawns & (pawns >> 1) & ~fileHMask) + countBits(pawns & (pawns << 1) & ~fileAMask)) * phalanxPawnBonus;
 
+	// Doubled pawns
+	for (int i = 0; i < 8; ++i) {
+		if (countBits(pawns & fileMasks[i]) > 1) eval -= doubledPawnPenalty;
+	}
+
 	while (pawns) {
 		int sqr = popBit(pawns);
 		// Passed pawn
@@ -88,7 +93,7 @@ int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, in
 		int passedScore = taperedScore(passedBonus[passedRank][MG], passedBonus[passedRank][EG], phase);
 		int forward = (color == WHITE) ? 8 : -8;
 		// Reduce bonus if passed pawn is blockaded
-		eval += (b.squares[sqr + forward] == EMPTY) ? passedScore : passedScore * passedBlockReduction;
+		eval += (b.squares[sqr + forward] == EMPTY) ? passedScore : passedScore / passedBlockReduction;
 	}
 	return eval;
 }
@@ -110,8 +115,9 @@ int evaluateKnights(const Board& b, uint64_t pieces, const uint64_t& safeSquares
 int evaluateBishops(const Board& b, uint64_t pieces, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color) {
 	int eval = 0;
 	int count = 0;
+	const uint64_t valid = ~b.colors[b.turn];
 	while (pieces) {
-		uint64_t attacks = getBishopAttacks(b, color, popBit(pieces));
+		uint64_t attacks = getBishopAttacks(b, valid, color, popBit(pieces));
 		// Mobility
 		eval += bishopMobility[countBits(attacks & safeSquares)];
 		// King attacks
@@ -127,9 +133,10 @@ int evaluateBishops(const Board& b, uint64_t pieces, const uint64_t& safeSquares
 
 int evaluateRooks(const Board& b, uint64_t pieces, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color) {
 	int eval = 0;
+	const uint64_t valid = ~b.colors[b.turn];
 	while (pieces) {
 		int sqr = popBit(pieces);
-		uint64_t attacks = getRookAttacks(b, color, sqr);
+		uint64_t attacks = getRookAttacks(b, valid, color, sqr);
 		// Mobility
 		eval += rookMobility[countBits(attacks & safeSquares)];
 		// King attacks
@@ -144,8 +151,9 @@ int evaluateRooks(const Board& b, uint64_t pieces, const uint64_t& safeSquares, 
 
 int evaluateQueens(const Board& b, uint64_t pieces, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color) {
 	int eval = 0;
+	const uint64_t valid = ~b.colors[b.turn];
 	while (pieces) {
-		uint64_t attacks = getQueenAttacks(b, color, popBit(pieces));
+		uint64_t attacks = getQueenAttacks(b, valid, color, popBit(pieces));
 		// Mobility
 		eval += queenMobility[countBits(attacks & safeSquares)];
 		// King attacks
@@ -189,11 +197,8 @@ uint64_t genKingRing(int sqr) {
 
 float getPhase(const Board& b) {
 	int material = 0;
-	for (int i = 0; i < SQUARE_NUM; ++i) {
-		int piece = pieceType(b.squares[i]);
-		if (piece < KING) {
-			material += pieceValues[piece][MG];
-		}
+	for (int i = PAWN; i <= QUEEN; ++i) {
+		material += pieceValues[i][MG] * countBits(b.pieces[i]);
 	}
 	return std::min((float)1.0, material / materialSum);
 }

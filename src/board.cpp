@@ -53,8 +53,6 @@ void setSquare(Board& b, int piece, int sqr) {
 bool drawnByRepetition(const Board& b) {
 	int count = 0;
 	for (int i = b.moveNum - 2; i >= 0; i -= 2) {
-		// Draw before a pawn move / capture is impossible
-		if (i < b.moveNum - b.fiftyMove) break;
 		if (b.history[i] == b.key && (++count == 2)) return true;
 	}
 	return false;

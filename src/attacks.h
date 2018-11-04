@@ -23,11 +23,11 @@ void initKingAttacks(const uint64_t& bb, int sqr);
 
 void initAttacks();
 
-uint64_t getBishopAttacks(const Board& b, int color, int sqr);
+uint64_t getBishopAttacks(const Board& b, const uint64_t& valid, int color, int sqr);
 uint64_t getBishopAttacks(const uint64_t& occupied, int sqr);
-uint64_t getRookAttacks(const Board& b, int color, int sqr);
+uint64_t getRookAttacks(const Board& b, const uint64_t& valid, int color, int sqr);
 uint64_t getRookAttacks(const uint64_t& occupied, int sqr);
-uint64_t getQueenAttacks(const Board& b, int color, int sqr);
+uint64_t getQueenAttacks(const Board& b, const uint64_t& valid, int color, int sqr);
 
 bool squareIsAttacked(const Board& b, int color, int sqr);
 uint64_t squareAttackers(const Board& b, int color, int sqr);

@@ -53,12 +53,7 @@ struct SearchInfo {
 			std::cout << "cp " << score;
 		}
 		else {
-			if (score > 0) {
-				std::cout << "mate " << (MATE_SCORE - score + 1) / 2;
-			}
-			else {
-				std::cout << "mate " << (MATE_SCORE + score) / 2;
-			}
+			std::cout << "mate " << (MATE_SCORE - abs(score)) / 2 + (score > 0);
 		}
 		std::cout << " depth " << depth << " seldepth " << seldepth << " nodes " << nodes + qnodes;
 		std::cout << " time " << (double)(clock() - start) / (CLOCKS_PER_SEC / 1000) << " ";
@@ -66,19 +61,22 @@ struct SearchInfo {
 };
 
 static constexpr int aspirationMinDepth = 5;
-static constexpr int aspirationWindow = 40;
+static constexpr int aspirationWindow = 35;
 
 static constexpr int nullMoveBaseR = 3;
 static constexpr int nullMoveMinDepth = 3;
 static constexpr float nullMovePhaseLimit = (float)0.2;
 
-static constexpr int futilityMaxDepth = 6;
+static constexpr int futilityMaxDepth = 8;
 static constexpr int futilityMargin = 150;
 static constexpr int deltaMargin = 125;
 
 static constexpr int lateMoveBaseR = 1;
 static constexpr int lateMoveMinDepth = 3;
 static constexpr int lateMoveMinMove = 4;
+
+static constexpr int lateMovePruningMaxDepth = 4;
+static constexpr int lateMovePruningMove = 8;
 
 static constexpr int hashMoveBonus = 500000;
 
@@ -110,6 +108,7 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si);
 
 int staticExchangeEvaluation(const Board& b, const Move& m, int threshold = 0);
 int SEEMoveVal(const Board& b, const Move& m);
+int greatestTacticalGain(const Board& b);
 
 void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit);
 

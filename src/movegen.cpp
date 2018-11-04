@@ -20,6 +20,7 @@ void addPawnMoves(std::vector<Move>& moves, uint64_t bb, const int shift) {
 		}
 	}
 }
+
 void addPieceMoves(std::vector<Move>& moves, uint64_t bb, const int from) {
 	while (bb) {
 		moves.emplace_back(from, popBit(bb), NORMAL_MOVE);
@@ -63,9 +64,10 @@ void genKnightMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 
 void genBishopMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 	uint64_t bishops = b.pieces[BISHOP] & b.colors[b.turn];
+	const uint64_t valid = ~b.colors[b.turn];
 	while (bishops) {
 		int sqr = popBit(bishops);
-		uint64_t bb = getBishopAttacks(b, (b.squares[sqr] == B_BISHOP), sqr) & ~b.pieces[KING];
+		uint64_t bb = getBishopAttacks(b, valid, b.turn, sqr) & ~b.pieces[KING];
 		if (noisyOnly) bb &= b.colors[!b.turn];
 		addPieceMoves(moves, bb, sqr);
 	}
@@ -73,9 +75,10 @@ void genBishopMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 
 void genRookMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 	uint64_t rooks = b.pieces[ROOK] & b.colors[b.turn];
+	const uint64_t valid = ~b.colors[b.turn];
 	while (rooks) {
 		int sqr = popBit(rooks);
-		uint64_t bb = getRookAttacks(b, (b.squares[sqr] == B_ROOK), sqr) & ~b.pieces[KING];
+		uint64_t bb = getRookAttacks(b, valid, b.turn, sqr) & ~b.pieces[KING];
 		if (noisyOnly) bb &= b.colors[!b.turn];
 		addPieceMoves(moves, bb, sqr);
 	}
@@ -83,9 +86,10 @@ void genRookMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 
 void genQueenMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 	uint64_t queens = b.pieces[QUEEN] & b.colors[b.turn];
+	const uint64_t valid = ~b.colors[b.turn];
 	while (queens) {
 		int sqr = popBit(queens);
-		uint64_t bb = getQueenAttacks(b, (b.squares[sqr] == B_QUEEN), sqr) & ~b.pieces[KING];
+		uint64_t bb = getQueenAttacks(b, valid, b.turn, sqr) & ~b.pieces[KING];
 		if (noisyOnly) bb &= b.colors[!b.turn];
 		addPieceMoves(moves, bb, sqr);
 	}
