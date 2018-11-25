@@ -106,7 +106,7 @@ std::vector<std::pair<Move, int>> scoreNoisyMoves(const Board& b, const std::vec
 	return scoredMoves;
 }
 
-int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bool allowNull = true) {
+int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[MAX_PLY], bool allowNull = true) {
 	if (timeOver(si)) return alpha;
 
 	bool isRoot = (!ply);
@@ -134,6 +134,9 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 		}
 	}
 
+	Move pv[MAX_PLY];
+	for (auto& m : pv) m = NO_MOVE;
+
 	bool isInCheck = inCheck(b, b.turn);
 
 	if (depth <= 0) {
@@ -144,7 +147,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 		}
 		else {
 			// Drop into qsearch
-			int qscore = qsearch(b, ply, alpha, beta, si);
+			int qscore = qsearch(b, ply, alpha, beta, si, pv);
 			return qscore;
 		}
 	}
@@ -166,7 +169,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 		auto u = makeNullMove(b);
 		int nullMoveR = nullMoveBaseR + depth / 6;
 		nullMoveR = std::min(nullMoveR, 4);
-		score = -search(b, depth - 1 - nullMoveR, ply + 1, -beta, -beta + 1, si, false);
+		score = -search(b, depth - 1 - nullMoveR, ply + 1, -beta, -beta + 1, si, pv, false);
 		undoNullMove(b, u);
 		if (score >= beta) return score;
 	}
@@ -218,10 +221,10 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 			if (isKiller) lateMoveR -= 1;
 
 			lateMoveR = std::max(0, std::min(lateMoveR, depth - 1));  // Do not drop directly into qsearch
-			score = -search(b, depth - lateMoveR - 1, ply + 1, -alpha - 1, -alpha, si);
+			score = -search(b, depth - lateMoveR - 1, ply + 1, -alpha - 1, -alpha, si, pv);
 		}
 
-		if (score > alpha) score = -search(b, depth - 1, ply + 1, -beta, -alpha, si);
+		if (score > alpha) score = -search(b, depth - 1, ply + 1, -beta, -alpha, si, pv);
 
 		undoMove(b, m, u);
 
@@ -238,7 +241,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 			}
 
 			// Update history score
-			if (!isNoisy) historyMoves[b.turn][pieceType(b.squares[m.from])][m.to] += depth * depth;
+			if (!isNoisy && depth <= 12) historyMoves[b.turn][pieceType(b.squares[m.from])][m.to] += depth * depth;
 
 			// Update move ordering info
 			si.failHigh++;
@@ -251,6 +254,13 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 			alpha = score;
 			bestMove = m;
 			TTFlag = TT_EXACT;
+
+			// Copy PV from child nodes
+			ppv[ply] = m;
+			for (int i = ply + 1; i < MAX_PLY; ++i) {
+				if (pv[i] == NO_MOVE) break;
+				ppv[i] = pv[i];
+			}
 		}
 	}
 
@@ -269,7 +279,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bo
 	return alpha;
 }
 
-int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si) {
+int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[MAX_PLY]) {
 	if (timeOver(si)) return alpha;
 	if (ply > si.seldepth) si.seldepth = ply;
 
@@ -289,6 +299,9 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si) {
 	std::vector<std::pair<Move, int>> scoredNoisyMoves = scoreNoisyMoves(b, noisyMoves);
 	std::sort(scoredNoisyMoves.begin(), scoredNoisyMoves.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
 
+	Move pv[MAX_PLY];
+	for (auto& m : pv) m = NO_MOVE;
+
 	for (int i = 0, size = scoredNoisyMoves.size(); i < size; ++i) {
 		Move m = scoredNoisyMoves[i].first;
 
@@ -304,13 +317,21 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si) {
 			continue;
 		}
 
-		int score = -qsearch(b, ply + 1, -beta, -alpha, si);
+		int score = -qsearch(b, ply + 1, -beta, -alpha, si, pv);
 		undoMove(b, m, u);
 
 		si.qnodes++;
 
 		if (score >= beta) return beta;
-		if (score > alpha) alpha = score;
+		if (score > alpha) {
+			alpha = score;
+
+			ppv[ply] = m;
+			for (int i = ply + 1; i < MAX_PLY; ++i) {
+				if (pv[i] == NO_MOVE) break;
+				ppv[i] = pv[i];
+			}
+		}
 	}
 	return alpha;
 }
@@ -409,7 +430,7 @@ void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 		si.reset();
 		si.depth = i;
 
-		int score = search(b, i, 0, alpha, beta, si);
+		int score = search(b, i, 0, alpha, beta, si, si.pv);
 		if (timeOver(si)) break;
 
 		if ((score <= alpha) || (score >= beta)) {
@@ -421,8 +442,6 @@ void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 		}
 
 		si.print();
-		printPV(b, i);
-		std::cout << "\n";
 
 		research = false;
 		if (i >= aspirationMinDepth) {
@@ -434,21 +453,4 @@ void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 	si = searchCache;
 	std::cout << "bestmove " << toNotation(si.bestMove) << "\n";
 	ageTT();
-}
-
-void printPV(Board b, int limit) {
-	int ply = 0;
-	std::cout << "pv ";
-	auto it = tt.find(b.key);
-	Move hashMove = (it != tt.end()) ? it->second.move : NO_MOVE;
-	while (hashMove != NO_MOVE) {
-		ply++;
-		makeMove(b, hashMove);
-		std::cout << toNotation(hashMove) << " ";
-		it = tt.find(b.key);
-		hashMove = (it != tt.end()) ? it->second.move : NO_MOVE;
-		// PV currently does not account for threefold repetition and will cycle hash moves
-		// We use a failsafe to prevent an infinite loop
-		if (ply > limit) break;
-	}
 }

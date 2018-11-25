@@ -17,6 +17,7 @@ struct SearchInfo {
 	Move bestMove = NO_MOVE;
 	double start = clock();
 	int limit = 0;
+	Move pv[MAX_PLY];
 
 	void operator=(const SearchInfo& si) {
 		depth = si.depth;
@@ -29,6 +30,10 @@ struct SearchInfo {
 		bestMove = si.bestMove;
 		start = si.start;
 		limit = si.limit;
+		for (int i = 0; i < MAX_PLY; ++i) {
+			if (si.pv[i] == NO_MOVE) break;
+			pv[i] = si.pv[i];
+		}
 	}
 
 	void initTime(int limitParam) {
@@ -45,6 +50,7 @@ struct SearchInfo {
 		failHigh = 0;
 		failHighFirst = 0;
 		bestMove = NO_MOVE;
+		for (auto& m : pv) m = NO_MOVE;
 	}
 
 	void print() {
@@ -56,7 +62,13 @@ struct SearchInfo {
 			std::cout << "mate " << (MATE_SCORE - abs(score)) / 2 + (score > 0);
 		}
 		std::cout << " depth " << depth << " seldepth " << seldepth << " nodes " << nodes + qnodes;
-		std::cout << " time " << (double)(clock() - start) / (CLOCKS_PER_SEC / 1000) << " ";
+		std::cout << " time " << (double)(clock() - start) / (CLOCKS_PER_SEC / 1000);
+		std::cout << " pv ";
+		for (const auto& m : pv) {
+			if (m == NO_MOVE) break;
+			std::cout << toNotation(m) << " ";
+		}
+		std::cout << "\n";
 	}
 };
 
@@ -76,7 +88,7 @@ static constexpr int lateMoveMinDepth = 3;
 static constexpr int lateMoveMinMove = 4;
 
 static constexpr int lateMovePruningMaxDepth = 4;
-static constexpr int lateMovePruningMove = 8;
+static constexpr int lateMovePruningMove = 7;
 
 static constexpr int hashMoveBonus = 500000;
 
@@ -103,15 +115,13 @@ std::vector<std::pair<Move, int>> scoreMoves(const Board& b, const std::vector<M
 int scoreNoisyMove(const Board& b, const Move& m);
 std::vector<std::pair<Move, int>> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves);
 
-int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, bool allowNull);
-int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si);
+int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Move(&ppv)[MAX_PLY], bool allowNull);
+int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[MAX_PLY]);
 
 int staticExchangeEvaluation(const Board& b, const Move& m, int threshold = 0);
 int SEEMoveVal(const Board& b, const Move& m);
 int greatestTacticalGain(const Board& b);
 
 void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit);
-
-void printPV(Board b, int limit);
 
 #endif
