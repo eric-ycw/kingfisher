@@ -77,8 +77,8 @@ void parseGo(Board& b, SearchInfo& si, std::string input) {
 		depth = MAX_PLY;
 	}
 
-	double total = time + increment * 0.9;
-	if (timeLeft && total > timeLeft - 100) {
+	double total = time + increment * 0.8;
+	if (timeLeft && total > timeLeft - 1000) {
 		total = std::min(timeLeft * 0.75, total * 0.75);
 	}
 	iterativeDeepening(b, si, total);
