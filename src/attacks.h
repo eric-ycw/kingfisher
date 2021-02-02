@@ -14,12 +14,12 @@ extern uint64_t rookAttacks[SQUARE_NUM][4];
 extern uint64_t queenAttacks[SQUARE_NUM][8];
 extern uint64_t kingAttacks[SQUARE_NUM];
 
-void initPawnAttacks(const uint64_t& bb, int sqr);
-void initKnightAttacks(const uint64_t& bb, int sqr);
-void initBishopAttacks(int sqr);
-void initRookAttacks(int sqr);
-void initQueenAttacks(int sqr);
-void initKingAttacks(const uint64_t& bb, int sqr);
+static void initPawnAttacks(const uint64_t& bb, int sqr);
+static void initKnightAttacks(const uint64_t& bb, int sqr);
+static void initBishopAttacks(int sqr);
+static void initRookAttacks(int sqr);
+static void initQueenAttacks(int sqr);
+static void initKingAttacks(const uint64_t& bb, int sqr);
 
 void initAttacks();
 

@@ -110,10 +110,10 @@ bool timeOver(const SearchInfo& si);
 void reduceHistory();
 
 int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& hashMove);
-std::vector<std::pair<Move, int>> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply);
+std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply);
 
 int scoreNoisyMove(const Board& b, const Move& m);
-std::vector<std::pair<Move, int>> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves);
+std::vector<Move> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves);
 
 int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Move(&ppv)[MAX_PLY], bool allowNull);
 int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[MAX_PLY]);

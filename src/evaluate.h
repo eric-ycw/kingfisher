@@ -78,7 +78,7 @@ static constexpr int psqtFileTable[8] = { 0, 1, 2, 3, 3, 2, 1, 0 };
 
 static constexpr int supportedPawnBonus = 12;
 static constexpr int phalanxPawnBonus = 8;
-static constexpr int doubledPawnPenalty = 12;
+static constexpr int doubledPawnPenalty = 16;
 
 static constexpr int passedBonus[7][2] = {
 	{0, 0}, {0, 10}, {5, 20}, {15, 30}, {45, 65}, {125, 175}, {250, 275}

@@ -67,16 +67,16 @@ int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& h
 	return historyScore;
 }
 
-std::vector<std::pair<Move, int>> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply) {
+std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply) {
 	float phase = getPhase(b);
 	auto it = tt.find(b.key);
 	Move hashMove = (it != tt.end()) ? tt[b.key].move : NO_MOVE;
 	int size = moves.size();
-	std::vector<std::pair<Move, int>> scoredMoves(size);
+	std::vector<Move> scoredMoves(size);
 
 	for (int i = 0; i < size; ++i) {
-		scoredMoves[i].first = moves[i];
-		scoredMoves[i].second = scoreMove(b, moves[i], ply, phase, hashMove);
+		scoredMoves[i] = moves[i];
+		scoredMoves[i].score = scoreMove(b, moves[i], ply, phase, hashMove);
 	}
 	return scoredMoves;
 }
@@ -96,12 +96,12 @@ int scoreNoisyMove(const Board& b, const Move& m) {
 	return score * 100;
 }
 
-std::vector<std::pair<Move, int>> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves) {
+std::vector<Move> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves) {
 	int size = moves.size();
-	std::vector<std::pair<Move, int>> scoredMoves(size);
+	std::vector<Move> scoredMoves(size);
 	for (int i = 0; i < size; ++i) {
-		scoredMoves[i].first = moves[i];
-		scoredMoves[i].second = scoreNoisyMove(b, moves[i]);
+		scoredMoves[i] = moves[i];
+		scoredMoves[i].score = scoreNoisyMove(b, moves[i]);
 	}
 	return scoredMoves;
 }
@@ -182,14 +182,14 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	int movesSearched = 0;
 
 	// Score and sort moves
-	std::vector<std::pair<Move, int>> scoredMoves = scoreMoves(b, moves, ply);
-	std::sort(scoredMoves.begin(), scoredMoves.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
+	std::vector<Move> scoredMoves = scoreMoves(b, moves, ply);
+	std::sort(scoredMoves.begin(), scoredMoves.end(), [](const auto& a, const auto& b) { return a.score > b.score; });
 
 	for (int i = 0, size = scoredMoves.size(); i < size; ++i) {
 		// Only call timeOver at higher depths to reduce calls to clock()
 		if (depth >= 5 && timeOver(si)) return alpha;
 
-		Move m = scoredMoves[i].first;
+		Move m = scoredMoves[i];
 		bool isCapture = (b.squares[m.to] != EMPTY || m.flag == EP_MOVE);
 		bool isPromotion = (m.flag >= PROMOTION_KNIGHT);
 		bool isNoisy = (isCapture || isPromotion);
@@ -296,14 +296,14 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 	auto noisyMoves = genNoisyMoves(b);
 	if (noisyMoves.empty()) return eval;
 
-	std::vector<std::pair<Move, int>> scoredNoisyMoves = scoreNoisyMoves(b, noisyMoves);
-	std::sort(scoredNoisyMoves.begin(), scoredNoisyMoves.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
+	std::vector<Move> scoredNoisyMoves = scoreNoisyMoves(b, noisyMoves);
+	std::sort(scoredNoisyMoves.begin(), scoredNoisyMoves.end(), [](const auto& a, const auto& b) { return a.score > b.score; });
 
 	Move pv[MAX_PLY];
 	for (auto& m : pv) m = NO_MOVE;
 
 	for (int i = 0, size = scoredNoisyMoves.size(); i < size; ++i) {
-		Move m = scoredNoisyMoves[i].first;
+		Move m = scoredNoisyMoves[i];
 
 		// Delta pruning
 		if (m.flag < PROMOTION_KNIGHT && eval + deltaMargin + pieceValues[pieceType(b.squares[m.to])][MG] < alpha) continue;
