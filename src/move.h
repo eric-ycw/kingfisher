@@ -7,52 +7,50 @@ enum MoveFlag { NORMAL_MOVE, CASTLE_MOVE, EP_MOVE, PROMOTION_KNIGHT, PROMOTION_B
 
 struct Move {
 	// [ffffff][tttttt][gggg]
-	// f -> 6 bits, from square
-	// t -> 6 bits, to square
-	// g -> 4 bits, move flag
+	// f: 6 bits, from square
+	// t: 6 bits, to square
+	// g: 4 bits, move flag
 	
 	Move() {
-		from = -1;
-		to = -1;
-		flag = -1;
+		code = 0;
 		score = 0;
 	}
 
 	Move(int fromParam, int toParam, uint8_t flagParam) {
-		from = fromParam;
-		to = toParam;
-		flag = flagParam;
-		score = 0;
+		code = (fromParam << 10) | (toParam << 4) | flagParam;
 	}
 
 	Move(int fromParam, int toParam, uint8_t flagParam, int scoreParam) {
-		from = fromParam;
-		to = toParam;
-		flag = flagParam;
+		code = (fromParam << 10) | (toParam << 4) | flagParam;
 		score = scoreParam;
 	}
 
-	// uint16_t code;
-	// int score;
+	uint16_t code = 0;
+	int score = 0;
 
- 	int from;
-	int to;
-	uint8_t flag;
-	int score;
+	inline int getFrom() const {
+		return code >> 10;
+	}
 
-	void operator=(const Move& m) {
-		from = m.from;
-		to = m.to;
-		flag = m.flag;
+	inline int getTo() const {
+		return (code & 0x3f0) >> 4;
+	}
+
+	inline int getFlag() const {
+		return code & 0xf;
+	}
+
+	inline void operator=(const Move& m) {
+		code = m.code;
 		score = m.score;
 	}
 
-	bool operator==(const Move& m) const {
-		return (from == m.from && to == m.to && flag == m.flag);
+	inline bool operator==(const Move& m) const {
+		return (code == m.code);
 	}
 
-	bool operator!=(const Move& m) const {
-		return (from != m.from || to != m.to || flag != m.flag);
+	inline bool operator!=(const Move& m) const {
+		return (code != m.code);
 	}
 };
 

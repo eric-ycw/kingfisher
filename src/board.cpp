@@ -4,6 +4,7 @@
 #include "evaluate.h"
 #include "move.h"
 #include "movegen.h"
+#include "tt.h"
 #include "types.h"
 
 uint64_t pieceKeys[12][SQUARE_NUM];
@@ -147,11 +148,11 @@ std::string toNotation(int sqr) {
 std::string toNotation(const Move& m) {
 	if (m == NO_MOVE) return "0000";
 	std::string s = "      ";
-	s[0] = char(m.from % 8 + 97);
-	s[1] = char(m.from / 8 + 49);
-	s[2] = char(m.to % 8 + 97);
-	s[3] = char(m.to / 8 + 49);
-	switch (m.flag) {
+	s[0] = char(m.getFrom() % 8 + 97);
+	s[1] = char(m.getFrom() / 8 + 49);
+	s[2] = char(m.getTo() % 8 + 97);
+	s[3] = char(m.getTo() / 8 + 49);
+	switch (m.getFlag()) {
 	default:
 		s.resize(4);
 		break;
@@ -224,6 +225,11 @@ void printBoard(const Board& b) {
 uint64_t perft(Board& b, int depth, int ply) {
 	auto start = (!ply) ? clock() : 0;
 	if (depth == 0) return 1ull;
+	// Use transposition table
+	int pttnodes = probePTT(b.key, depth);
+	if (pttnodes != NO_NODES) {
+		return pttnodes;
+	}
 	uint64_t count = 0ull;
 	auto moves = genAllMoves(b);
 	bool haveMove = false;
@@ -237,6 +243,7 @@ uint64_t perft(Board& b, int depth, int ply) {
 		}
 		undoMove(b, moves[i], u);
 	}
+	if (haveMove) { storePTT(b.key, depth, count); }
 	if (!ply) std::cout << "Nodes: " << count << "\n";
 	if (!ply) std::cout << "Time: " << (double)(clock() - start) / (CLOCKS_PER_SEC / 1000) << "\n";
 	return (haveMove) ? count : 0ull;

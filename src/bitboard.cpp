@@ -12,12 +12,8 @@ bool checkBit(const uint64_t& b, int sqr) {
 	return (b & (1ull << sqr)) > 0;
 }
 
-// Matt Taylor's folding trick
-int lsb(const uint64_t& b) {
-	if (!b) return 0;
-	uint64_t bb = b ^ (b - 1);
-	uint32_t folded = (uint32_t)((bb & 0xffffffff) ^ (bb >> 32));
-	return lsbTable[(folded * 0x78291acf) >> 26];
+inline int lsb(const uint64_t& b) {
+	return __builtin_ctzll(b);
 }
 
 // De Bruijn multiplication

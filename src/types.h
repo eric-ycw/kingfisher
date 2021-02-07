@@ -9,7 +9,7 @@
 #include <cmath>
 #include <iostream>
 #include <random>
-#include <string>
+#include <cstring>
 #include <unordered_map>
 #include <vector>
 
@@ -74,7 +74,8 @@ enum Score {
 	MATE_SCORE = 64000,
 	MATE_IN_MAX = MATE_SCORE - MAX_PLY,
 	MATED_IN_MAX = -MATE_SCORE + MAX_PLY,
-	NO_VALUE = MATE_SCORE + 1
+	NO_VALUE = MATE_SCORE + 1,
+	NO_NODES = -1
 };
 
 // Forward declarations

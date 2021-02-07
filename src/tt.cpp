@@ -4,53 +4,65 @@
 #include "tt.h"
 #include "types.h"
 
-std::unordered_map<uint64_t, TTInfo> tt;
+TTInfo tt[TTMaxEntry];
+PTTInfo ptt[TTMaxEntry];
 
 int probeTT(const uint64_t& key, int depth, int alpha, int beta, int ply, SearchInfo& si, int& ttEval) {
-	auto it = tt.find(key);
-	if (it != tt.end()) {
-		ttEval = it->second.eval;
-		int score = it->second.score;
-		if (score >= MATE_IN_MAX) score += it->second.ply - ply;
-		if (score <= MATED_IN_MAX) score += -it->second.ply + ply;
-		it->second.age = 0;
-		if (it->second.depth < depth) return NO_VALUE;
-		if (it->second.flag == TT_EXACT) {
+	auto& entry = tt[key & TTMaxEntry];
+	if (entry.key == key) {
+		if (entry.depth < depth) return NO_VALUE;
+		ttEval = entry.eval;
+		int score = entry.score;
+		if (score == NO_VALUE) return NO_VALUE;
+		if (score >= MATE_IN_MAX) score += entry.ply - ply;
+		if (score <= MATED_IN_MAX) score += -entry.ply + ply;
+		entry.age = 0;
+		if (entry.flag == TT_EXACT) {
 			return score;
 		}
-		else if ((it->second.flag == TT_ALPHA) && (it->second.score <= alpha)) {
+		else if ((entry.flag == TT_ALPHA) && (entry.score <= alpha)) {
 			return alpha;
 		}
-		else if ((it->second.flag == TT_BETA) && (it->second.score >= beta)) {
+		else if ((entry.flag == TT_BETA) && (entry.score >= beta)) {
 			return beta;
 		}
 	}
 	return NO_VALUE;
 }
 
-void storeTT(const uint64_t& key, int depth, int score, int flag, int eval, int ply) {
-	auto it = tt.find(key);
-	if (it != tt.end()) {
-		it->second.depth = depth;
-		it->second.score = score;
-		it->second.flag = flag;
-		if (eval != NO_VALUE) it->second.eval = eval;
-		it->second.ply = ply;
-		it->second.age = 0;
-	}
-	else {
-		tt.emplace(std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(depth, score, flag, eval, ply));
+int probePTT(const uint64_t& key, int depth) {
+	auto& entry = ptt[key & TTMaxEntry];
+	return (entry.key == key && entry.depth == depth) ? entry.nodes : NO_NODES;
+}
+
+void storeTT(const uint64_t& key, int depth, int score, int flag, int eval, int ply, const Move& m) {
+	auto& entry = tt[key & TTMaxEntry];
+	entry.key = key;
+	entry.depth = depth;
+	entry.score = score;
+	entry.flag = flag;
+	if (eval != NO_VALUE) entry.eval = eval;
+	entry.ply = ply;
+	entry.move = m;
+	entry.age = 0;
+}
+
+void storePTT(const uint64_t& key, int depth, int nodes) {
+	auto& entry = ptt[key & TTMaxEntry];
+	if (entry.nodes == NO_NODES) {
+		entry.key = key;
+		entry.depth = depth;
+		entry.nodes = nodes;
 	}
 }
 
 void ageTT() {
-	for (auto it = tt.begin(); it != tt.end();) {
-		if (it->second.age < TTAgeLimit) {
-			it->second.age++;
-			it++;
+	for (int i = 0; i < TTMaxEntry; ++i) {
+		if (tt[i].key != 0 && tt[i].age < TTAgeLimit) {
+			tt[i].age++;
 		}
 		else {
-			it = tt.erase(it);
+			tt[i].key = 0;
 		}
 	}
 }

@@ -16,7 +16,7 @@ int main()
 	initAttacks();
 
 	std::cout << "id name Kingfisher\n";
-	std::cout << "id author Plan B\n";
+	std::cout << "id author Eric Yip\n";
 	std::cout << "uciok\n";
 
 	std::string input;
@@ -39,7 +39,7 @@ int main()
 		}
 		else if (!input.compare(0, 3, "uci")) {
 			std::cout << "id name Kingfisher\n";
-			std::cout << "id author Plan B\n";
+			std::cout << "id author Eric Yip\n";
 			std::cout << "uciok\n";
 		}
 		else if (!input.compare(0, 5, "perft")) {

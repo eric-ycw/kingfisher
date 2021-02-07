@@ -41,12 +41,12 @@ void reduceHistory() {
 	}
 }
 
-int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& hashMove = NO_MOVE) {
+int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& hashMove) {
 	// Hash move
 	if (m == hashMove) return hashMoveBonus;
 
 	// Noisy moves
-	if (b.squares[m.to] != EMPTY || m.flag == EP_MOVE || m.flag >= PROMOTION_KNIGHT) {
+	if (b.squares[m.getTo()] != EMPTY || m.getFlag() == EP_MOVE || m.getFlag() >= PROMOTION_KNIGHT) {
 		return (staticExchangeEvaluation(b, m)) ? scoreNoisyMove(b, m) : -1000;
 	}
 
@@ -59,7 +59,7 @@ int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& h
 	}
 
 	// History heuristic
-	int historyScore = historyMoves[b.turn][pieceType(b.squares[m.from])][m.to];
+	int historyScore = historyMoves[b.turn][pieceType(b.squares[m.getFrom()])][m.getTo()];
 	if (historyScore >= historyMax || historyScore <= -historyMax) { 
 		historyScore /= 2;
 		reduceHistory(); 
@@ -69,8 +69,8 @@ int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& h
 
 std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply) {
 	float phase = getPhase(b);
-	auto it = tt.find(b.key);
-	Move hashMove = (it != tt.end()) ? tt[b.key].move : NO_MOVE;
+	auto entry = tt[b.key & TTMaxEntry];
+	Move hashMove = (entry.key == b.key) ? entry.move : NO_MOVE;
 	int size = moves.size();
 	std::vector<Move> scoredMoves(size);
 
@@ -82,15 +82,15 @@ std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int
 }
 
 int scoreNoisyMove(const Board& b, const Move& m) {
-	int fromType = pieceType(b.squares[m.from]);
+	int fromType = pieceType(b.squares[m.getFrom()]);
 	if (fromType == BISHOP) fromType = KNIGHT; // We treat knight and bishop as equals
-	const int toType = (m.flag == EP_MOVE) ? PAWN : pieceType(b.squares[m.to]);
+	const int toType = (m.getFlag() == EP_MOVE) ? PAWN : pieceType(b.squares[m.getTo()]);
 
 	// MVV-LVA
 	int score = SEEValues[toType] - fromType;
 	// Promotion bonus
-	if (m.flag >= PROMOTION_KNIGHT) {
-		score += SEEValues[m.flag - 2];
+	if (m.getFlag() >= PROMOTION_KNIGHT) {
+		score += SEEValues[m.getFlag() - 2];
 	}
 
 	return score * 100;
@@ -107,18 +107,20 @@ std::vector<Move> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves
 }
 
 int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[MAX_PLY], bool allowNull = true) {
-	if (timeOver(si)) return alpha;
 
 	bool isRoot = (!ply);
+	bool isPV = (alpha != beta - 1);
 	bool nearMate = (alpha <= MATED_IN_MAX || alpha >= MATE_IN_MAX || beta <= MATED_IN_MAX || beta >= MATE_IN_MAX);
 	if (ply > si.seldepth) si.seldepth = ply;
+
+	if (!isRoot && ((si.nodes & 1023) == 0) && timeOver(si)) return alpha;
 
 	int ttEval = NO_VALUE;
 
 	if (!isRoot) {
-		// Check for draw
+		// Check for 3-fold repetition
 		if (drawnByRepetition(b)) {
-			storeTT(b.key, MAX_PLY, 0, TT_EXACT, ttEval, ply);
+			// storeTT(b.key, MAX_PLY, 0, TT_EXACT, ttEval, ply, NO_MOVE);
 			return 0;
 		}
 
@@ -129,26 +131,27 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 		// Probe transposition table
 		int TTScore = probeTT(b.key, depth, alpha, beta, ply, si, ttEval);
-		if (TTScore != NO_VALUE) {
+		if (TTScore != NO_VALUE && !isPV) {
 			return TTScore;
 		}
 	}
 
+	// Initialize new PV
 	Move pv[MAX_PLY];
 	for (auto& m : pv) m = NO_MOVE;
 
 	bool isInCheck = inCheck(b, b.turn);
 
 	if (depth <= 0) {
+		// Depth is always non-negative
 		depth = 0;
-		if (isInCheck) {
+		if (inCheck(b, b.turn)) {
 			// Check extension
 			depth++;
 		}
 		else {
 			// Drop into qsearch
-			int qscore = qsearch(b, ply, alpha, beta, si, pv);
-			return qscore;
+			return qsearch(b, ply, alpha, beta, si, pv);
 		}
 	}
 
@@ -162,10 +165,9 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	int score;
 	int TTFlag = TT_ALPHA;
 	Move bestMove = NO_MOVE;
-	float phase = getPhase(b);
 
 	// Null move pruning
-	if (allowNull && depth >= nullMoveMinDepth && phase > nullMovePhaseLimit && !isInCheck && !nearMate) {
+	if (allowNull && depth >= nullMoveMinDepth && !isInCheck) {
 		auto u = makeNullMove(b);
 		int nullMoveR = nullMoveBaseR + depth / 6;
 		nullMoveR = std::min(nullMoveR, 4);
@@ -186,12 +188,9 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	std::sort(scoredMoves.begin(), scoredMoves.end(), [](const auto& a, const auto& b) { return a.score > b.score; });
 
 	for (int i = 0, size = scoredMoves.size(); i < size; ++i) {
-		// Only call timeOver at higher depths to reduce calls to clock()
-		if (depth >= 5 && timeOver(si)) return alpha;
-
 		Move m = scoredMoves[i];
-		bool isCapture = (b.squares[m.to] != EMPTY || m.flag == EP_MOVE);
-		bool isPromotion = (m.flag >= PROMOTION_KNIGHT);
+		bool isCapture = (b.squares[m.getTo()] != EMPTY || m.getFlag() == EP_MOVE);
+		bool isPromotion = (m.getFlag() >= PROMOTION_KNIGHT);
 		bool isNoisy = (isCapture || isPromotion);
 		bool isKiller = (m == killers[0][ply] || m == killers[1][ply]);
 
@@ -201,7 +200,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 		}
 
 		// Late move pruning
-		if (depth <= lateMovePruningMaxDepth && movesSearched >= lateMovePruningMove * depth && !isNoisy && !isInCheck) {
+		if (depth <= lateMovePruningMaxDepth && movesSearched >= lateMovePruningMove * depth && !isNoisy && !isKiller && !isInCheck) {
 			continue;
 		}
 
@@ -215,7 +214,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 		// Late move reduction
 		if (depth >= lateMoveMinDepth && movesSearched >= lateMoveMinMove && !isNoisy && !isInCheck) {
-			int lateMoveR = lateMoveBaseR + (depth / 3) * (movesSearched >= 6);
+			int lateMoveR = lateMoveBaseR + (movesSearched >= 6) * (depth / 3);
 
 			// Decrease reduction if killer move
 			if (isKiller) lateMoveR -= 1;
@@ -232,7 +231,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 		movesSearched++;
 
 		if (score >= beta) {
-			storeTT(b.key, depth, beta, TT_BETA, eval, ply);
+			storeTT(b.key, depth, beta, TT_BETA, eval, ply, NO_MOVE);
 
 			// Update killers
 			if (!isNoisy && m != killers[0][ply]) {
@@ -241,7 +240,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 			}
 
 			// Update history score
-			if (!isNoisy && depth <= 12) historyMoves[b.turn][pieceType(b.squares[m.from])][m.to] += depth * depth;
+			if (!isNoisy && depth <= 12) historyMoves[b.turn][pieceType(b.squares[m.getFrom()])][m.getTo()] += depth * depth;
 
 			// Update move ordering info
 			si.failHigh++;
@@ -268,11 +267,10 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 		return (isInCheck) ? -MATE_SCORE + ply : 0;
 	}
 
-	storeTT(b.key, depth, alpha, TTFlag, eval, ply);
-	tt[b.key].move = bestMove;
+	storeTT(b.key, depth, alpha, TTFlag, eval, ply, bestMove);
 
 	if (isRoot) {
-		si.score = score;
+		si.score = alpha;
 		si.bestMove = bestMove;
 	}
 
@@ -280,7 +278,6 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 }
 
 int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[MAX_PLY]) {
-	if (timeOver(si)) return alpha;
 	if (ply > si.seldepth) si.seldepth = ply;
 
 	// Check for draw
@@ -306,7 +303,7 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 		Move m = scoredNoisyMoves[i];
 
 		// Delta pruning
-		if (m.flag < PROMOTION_KNIGHT && eval + deltaMargin + pieceValues[pieceType(b.squares[m.to])][MG] < alpha) continue;
+		if (m.getFlag() < PROMOTION_KNIGHT && eval + deltaMargin + pieceValues[pieceType(b.squares[m.getTo()])][MG] < alpha) continue;
 
 		// Negative SEE pruning
 		if (!staticExchangeEvaluation(b, m)) continue;
@@ -338,10 +335,10 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 
 int staticExchangeEvaluation(const Board& b, const Move& m, int threshold) {
 
-	int from = m.from;
-	int to = m.to;
+	int from = m.getFrom();
+	int to = m.getTo();
 
-	int nextVictim = (m.flag >= PROMOTION_KNIGHT) ? m.flag - 2 : pieceType(b.squares[from]);
+	int nextVictim = (m.getFlag() >= PROMOTION_KNIGHT) ? m.getFlag() - 2 : pieceType(b.squares[from]);
 
 	int seeVal = SEEMoveVal(b, m) - threshold;
 	if (seeVal < 0) return 0;
@@ -356,7 +353,7 @@ int staticExchangeEvaluation(const Board& b, const Move& m, int threshold) {
 
 	uint64_t occupied = ~b.colors[NO_COLOR];
 	occupied ^= (1ull << from) ^ (1ull << to);
-	if (m.flag == EP_MOVE) occupied ^= (1ull << (b.epSquare - 8 + (b.turn << 4)));
+	if (m.getFlag() == EP_MOVE) occupied ^= (1ull << (b.epSquare - 8 + (b.turn << 4)));
 
 	int side = !b.turn;
 	uint64_t allAttackers = squareAttackers(b, !side, to) | squareAttackers(b, side, to) & occupied;
@@ -394,10 +391,10 @@ int staticExchangeEvaluation(const Board& b, const Move& m, int threshold) {
 }
 
 int SEEMoveVal(const Board& b, const Move& m) {
-	int piece = pieceType(b.squares[m.to]);
+	int piece = pieceType(b.squares[m.getTo()]);
 	int val = (piece != EMPTY) ? SEEValues[piece] : 0;
-	if (m.flag >= PROMOTION_KNIGHT) val += SEEValues[pieceType(m.flag - 2)] - SEEValues[PAWN];
-	if (m.flag == EP_MOVE) val += SEEValues[PAWN];
+	if (m.getFlag() >= PROMOTION_KNIGHT) val += SEEValues[pieceType(m.getFlag() - 2)] - SEEValues[PAWN];
+	if (m.getFlag() == EP_MOVE) val += SEEValues[PAWN];
 	return val;
 }
 
@@ -418,6 +415,7 @@ int greatestTacticalGain(const Board& b) {
 
 void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 	SearchInfo searchCache;
+	Move bestMove;
 	initSearch(si);
 	si.initTime(timeLimit);
 
@@ -426,13 +424,13 @@ void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 	bool research = false;
 
 	for (int i = 1; i <= MAX_PLY; ++i) {
-		if (!research) searchCache = si;  // We only use best move from full searches
+		if (!research) searchCache = si;
 		si.reset();
 		si.depth = i;
 
 		int score = search(b, i, 0, alpha, beta, si, si.pv);
 		if (timeOver(si)) break;
-
+		
 		if ((score <= alpha) || (score >= beta)) {
 			alpha = -MATE_SCORE;
 			beta = MATE_SCORE;
@@ -444,6 +442,7 @@ void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 		si.print();
 
 		research = false;
+
 		if (i >= aspirationMinDepth) {
 			alpha = si.score - aspirationWindow;
 			beta = si.score + aspirationWindow;

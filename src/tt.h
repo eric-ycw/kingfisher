@@ -15,17 +15,28 @@ struct TTInfo {
 		eval = evalParam;
 		ply = plyParam;
 	};
-	int depth, score, flag, ply, age = 0;
-	int eval = NO_VALUE;
+	int depth, flag, ply, age = 0;
+	int score, eval = NO_VALUE;
 	Move move = NO_MOVE;
+	uint64_t key = 0;
 };
 
-extern std::unordered_map<uint64_t, TTInfo> tt;
+struct PTTInfo {
+	PTTInfo() {};
+	int depth = 0;
+	int nodes = NO_NODES;
+	uint64_t key = 0;
+};
 
+static constexpr int TTMaxEntry = 0xfffff;
 static constexpr int TTAgeLimit = 6;
 
+extern TTInfo tt[TTMaxEntry];
+
 int probeTT(const uint64_t& b, int depth, int alpha, int beta, int ply, SearchInfo& si, int& ttEval);
-void storeTT(const uint64_t& b, int depth, int score, int flag, int eval, int ply);
+int probePTT(const uint64_t& b, int depth);
+void storeTT(const uint64_t& b, int depth, int score, int flag, int eval, int ply, const Move& m);
+void storePTT(const uint64_t& b, int depth, int nodes);
 void ageTT();
 
 #endif
