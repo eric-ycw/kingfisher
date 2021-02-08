@@ -243,8 +243,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 			if (!isNoisy && depth <= 12) historyMoves[b.turn][pieceType(b.squares[m.getFrom()])][m.getTo()] += depth * depth;
 
 			// Update move ordering info
-			si.failHigh++;
-			if (movesSearched == 1) si.failHighFirst++;
+			if (movesSearched <= FAIL_HIGH_MOVES) si.failHigh[movesSearched - 1]++;
 
 			return score;
 		}
@@ -440,6 +439,7 @@ void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 		}
 
 		si.print();
+		si.printMoveOrderingInfo();
 
 		research = false;
 

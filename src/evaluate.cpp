@@ -74,12 +74,12 @@ int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, in
 	int eval = 0;
 
 	// Supported pawns
-	eval += (countBits(pawns & ((color == WHITE) ? (pawns >> 7) & ~fileAMask : (pawns << 7) & ~fileHMask)) +
-			 countBits(pawns & ((color == WHITE) ? (pawns >> 9) & ~fileHMask : (pawns << 9) & ~fileAMask))) *
+	eval += (countBits((pawns & ((color == WHITE) ? (pawns >> 7) & ~fileAMask : (pawns << 7) & ~fileHMask)) |
+			(pawns & ((color == WHITE) ? (pawns >> 9) & ~fileHMask : (pawns << 9) & ~fileAMask)))) *
 			 supportedPawnBonus;
 
 	// Phalanx pawns
-	eval += (countBits(pawns & (pawns >> 1) & ~fileHMask) + countBits(pawns & (pawns << 1) & ~fileAMask)) * phalanxPawnBonus;
+	eval += (countBits((pawns & (pawns >> 1) & ~fileHMask) | (pawns & (pawns << 1) & ~fileAMask))) * phalanxPawnBonus;
 
 	// Doubled pawns
 	for (int i = 0; i < 8; ++i) {
@@ -91,9 +91,8 @@ int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, in
 		// Passed pawn
 		int passedRank = passed(b, sqr, enemyPawns, color);
 		int passedScore = taperedScore(passedBonus[passedRank][MG], passedBonus[passedRank][EG], phase);
-		int forward = (color == WHITE) ? 8 : -8;
 		// Reduce bonus if passed pawn is blockaded
-		eval += (b.squares[sqr + forward] == EMPTY) ? passedScore : passedScore / passedBlockReduction;
+		eval += (b.squares[sqr + (color == WHITE) * 8] == EMPTY) ? passedScore : passedScore / passedBlockReduction;
 	}
 	return eval;
 }

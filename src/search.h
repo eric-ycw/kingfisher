@@ -6,18 +6,19 @@
 #include "move.h"
 #include "types.h"
 
+static constexpr int FAIL_HIGH_MOVES = 6;
+
 struct SearchInfo {
 	int depth = 0;
 	int seldepth = 0;
 	int nodes = 0;
 	int qnodes = 0;
 	int score = 0;
-	int failHigh = 0;
-	int failHighFirst = 0;
 	Move bestMove = NO_MOVE;
 	double start = clock();
 	int limit = 0;
 	Move pv[MAX_PLY];
+	int failHigh[FAIL_HIGH_MOVES];
 
 	void operator=(const SearchInfo& si) {
 		depth = si.depth;
@@ -25,14 +26,15 @@ struct SearchInfo {
 		nodes = si.nodes;
 		qnodes = si.qnodes;
 		score = si.score;
-		failHigh = si.failHigh;
-		failHighFirst = si.failHighFirst;
 		bestMove = si.bestMove;
 		start = si.start;
 		limit = si.limit;
 		for (int i = 0; i < MAX_PLY; ++i) {
 			if (si.pv[i] == NO_MOVE) break;
 			pv[i] = si.pv[i];
+		}
+		for (int i = 0; i < FAIL_HIGH_MOVES; ++i) {
+			failHigh[i] = si.failHigh[i];
 		}
 	}
 
@@ -47,10 +49,9 @@ struct SearchInfo {
 		nodes = 0;
 		qnodes = 0;
 		score = 0;
-		failHigh = 0;
-		failHighFirst = 0;
 		bestMove = NO_MOVE;
 		for (auto& m : pv) m = NO_MOVE;
+		for (auto& i : failHigh) i = 0;
 	}
 
 	void print() {
@@ -67,6 +68,15 @@ struct SearchInfo {
 		for (const auto& m : pv) {
 			if (m == NO_MOVE) break;
 			std::cout << toNotation(m) << " ";
+		}
+		std::cout << "\n";
+	}
+
+	void printMoveOrderingInfo() {
+		int total = 0;
+		for (auto& i : failHigh) total += i;
+		for (auto& i : failHigh) {
+			std::cout << (float)i / total * 100 << "% - ";
 		}
 		std::cout << "\n";
 	}
