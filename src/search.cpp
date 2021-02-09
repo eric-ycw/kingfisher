@@ -219,9 +219,9 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 		// Late move reduction
 		if (depth >= lateMoveMinDepth && !isNoisy && !isInCheck && !isHash) {
-			int lateMoveRIndex = std::min(movesSearched, 63);
+			int lateMoveRi = std::min(movesSearched, 63);
 
-			int lateMoveR = lateMoveRTable[lateMoveRIndex];
+			int lateMoveR = lateMoveRTable[lateMoveRi];
 
 			// Decrease reduction if killer move
 			if (isKiller) lateMoveR -= 1;
@@ -445,7 +445,7 @@ void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 		}
 
 		si.print();
-		// si.printMoveOrderingInfo();
+		si.printMoveOrderingInfo();
 
 		research = false;
 
