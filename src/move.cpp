@@ -1,3 +1,4 @@
+#include "attacks.h"
 #include "bitboard.h"
 #include "board.h"
 #include "evaluate.h"
@@ -321,4 +322,146 @@ void updateCastleRights(Board& b, const Move& m) {
 			b.castlingRights ^= BQ_CASTLING;
 		}
 	}
+}
+
+bool moveIsPsuedoLegal(const Board& b, const Move& m) {
+	// Null move
+	if (m == NO_MOVE) return false;
+
+	const int from = m.getFrom();
+	const int to = m.getTo();
+	const int flag = m.getFlag();
+
+	// Not a valid square, not moving
+	if (!validSquare(from) || !validSquare(to) || from == to) return false;
+
+	const int fromPiece = b.squares[from];
+	const int toPiece = b.squares[to];
+
+	// No piece to move
+	if (fromPiece == EMPTY) return false;
+
+	const int fromType = pieceType(fromPiece);
+	const int toType = pieceType(toPiece);
+	const int fromColor = pieceColor(fromPiece);
+	const int toColor = pieceColor(toPiece);
+
+	// Not our piece, en passant/promotion but not a pawn move, castling but not a king move, capturing a king
+	if (fromColor != b.turn || (flag >= EP_MOVE && fromType != PAWN) || (flag == CASTLE_MOVE && fromType != KING) || (toType == KING)) return false;
+
+	uint64_t us = b.colors[fromColor];
+	uint64_t them = b.colors[!fromColor];
+	uint64_t empty = b.colors[NO_COLOR];
+
+	// For knights, bishops, queens, and rooks, moves are valid as long they can attack the square they're moving to
+	switch (fromType) {
+		case KNIGHT: {
+			return checkBit(knightAttacks[from] & ~us, to);
+			break;
+		}
+
+		case BISHOP: {
+			return checkBit(getBishopAttacks(b, ~us, b.turn, from), to);
+			break;
+		}
+
+		case ROOK: {
+			return checkBit(getRookAttacks(b, ~us, b.turn, from), to);
+			break;
+		}
+
+		case QUEEN: {
+			return checkBit(getQueenAttacks(b, ~us, b.turn, from), to);
+			break;
+		}
+	}
+
+	assert(fromType == PAWN || fromType == KING);
+
+	if (fromType == PAWN) {
+		const int forward = (b.turn == WHITE) ? N : S;
+
+		uint64_t attacks = pawnAttacks[from][fromColor];
+
+		// Check for en passant
+		if (flag == EP_MOVE) {
+			return (to == b.epSquare) && checkBit(attacks & empty, to);
+		}
+
+		// Check for pawn pushes
+		uint64_t pawnPushes = (((1ull << from) << 8) >> (b.turn << 4)) & empty;
+		if (to == from + forward) {
+			return checkBit(pawnPushes, to);
+		}
+
+		// Check for pawn double pushes
+		uint64_t srank = (b.turn == WHITE) ? rank2Mask : rank7Mask;
+		if ((to == from + forward * 2) && checkBit(srank, from)) {
+			uint64_t pawnDoublePushes = ((pawnPushes << 8) >> (b.turn << 4)) & ((b.turn == WHITE) ? rank4Mask : rank5Mask) & empty;
+			return checkBit(pawnDoublePushes, to);
+		}
+
+		// Promotion but not on the correct rank
+		uint64_t prank = (b.turn == WHITE) ? ~rank8Mask : ~rank1Mask;
+		if (flag >= PROMOTION_KNIGHT && checkBit(prank, to)) return false;
+
+		// Check for captures
+		return checkBit(attacks & them, to);
+	}
+	
+	assert(fromType == KING);
+
+	// Moving the king normally
+	if (flag == NORMAL_MOVE) return checkBit(kingAttacks[from] & ~us, to);
+
+	assert(flag == CASTLE_MOVE);
+
+	// Castling
+	switch (to) {
+
+		default: return false;
+
+		// White short castling
+		case G1: {
+			if (fromColor != WHITE || from != E1) return false;
+			if ((b.castlingRights & WK_CASTLING) == 0) return false;
+
+			if (b.squares[F1] != EMPTY || b.squares[G1] != EMPTY || b.squares[H1] != W_ROOK) return false;
+			
+			return true;
+		}
+
+		// White long castling
+		case C1: {
+			if (fromColor != WHITE || from != E1) return false;
+			if ((b.castlingRights & WQ_CASTLING) == 0) return false;
+
+			if (b.squares[D1] != EMPTY || b.squares[C1] != EMPTY || b.squares[B1] != EMPTY || b.squares[A1] != W_ROOK) return false;
+			
+			return true;
+		}
+
+		// Black short castling
+		case G8: {
+			if (fromColor != BLACK || from != E8) return false;
+			if ((b.castlingRights & BK_CASTLING) == 0) return false;
+
+			if (b.squares[F8] != EMPTY || b.squares[G8] != EMPTY || b.squares[H8] != B_ROOK) return false;
+
+			return true;
+		}
+
+		// Black long castling
+		case C8: {
+			if (fromColor != BLACK || from != E8) return false;
+			if ((b.castlingRights & BQ_CASTLING) == 0) return false;
+			
+			if (b.squares[D8] != EMPTY || b.squares[C8] != EMPTY || b.squares[B8] != EMPTY || b.squares[A8] != B_ROOK) return false;
+			
+			return true;
+		}
+
+	}
+
+	return false;
 }

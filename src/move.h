@@ -5,6 +5,8 @@
 
 enum MoveFlag { NORMAL_MOVE, CASTLE_MOVE, EP_MOVE, PROMOTION_KNIGHT, PROMOTION_BISHOP, PROMOTION_ROOK, PROMOTION_QUEEN };
 
+static constexpr int NO_SCORE = INT_MIN + 1;
+
 struct Move {
 	// [ffffff][tttttt][gggg]
 	// f: 6 bits, from square
@@ -13,11 +15,12 @@ struct Move {
 	
 	Move() {
 		code = 0;
-		score = 0;
+		score = NO_SCORE;
 	}
 
 	Move(int fromParam, int toParam, uint8_t flagParam) {
 		code = (fromParam << 10) | (toParam << 4) | flagParam;
+		score = NO_SCORE;
 	}
 
 	Move(int fromParam, int toParam, uint8_t flagParam, int scoreParam) {
@@ -26,7 +29,7 @@ struct Move {
 	}
 
 	uint16_t code = 0;
-	int score = 0;
+	int score = NO_SCORE;
 
 	inline int getFrom() const {
 		return code >> 10;
@@ -67,5 +70,7 @@ Undo makeNullMove(Board& b);
 void undoNullMove(Board& b, const Undo& u);
 
 void updateCastleRights(Board& b, const Move& m);
+
+bool moveIsPsuedoLegal(const Board& b, const Move& m);
 
 #endif

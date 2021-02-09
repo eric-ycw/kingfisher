@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <climits>
 #include <iostream>
 #include <random>
 #include <cstring>

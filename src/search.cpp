@@ -4,6 +4,7 @@
 #include "evaluate.h"
 #include "move.h"
 #include "movegen.h"
+#include "movepick.h"
 #include "search.h"
 #include "tt.h"
 #include "types.h"
@@ -113,6 +114,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	bool nearMate = (alpha <= MATED_IN_MAX || alpha >= MATE_IN_MAX || beta <= MATED_IN_MAX || beta >= MATE_IN_MAX);
 	if (ply > si.seldepth) si.seldepth = ply;
 
+	// We check for time every 1024 nodes
 	if (!isRoot && ((si.nodes & 1023) == 0) && timeOver(si)) return alpha;
 
 	int ttEval = NO_VALUE;
@@ -138,7 +140,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 	// Initialize new PV
 	Move pv[MAX_PLY];
-	for (auto& m : pv) m = NO_MOVE;
+	for (auto& p : pv) p = NO_MOVE;
 
 	bool isInCheck = inCheck(b, b.turn);
 
@@ -180,22 +182,35 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	bool fPrune = (depth <= futilityMaxDepth && !isInCheck && !isRoot && eval + futilityMargin * depth <= alpha);
 
 	// Generate all moves
-	auto moves = genAllMoves(b);
-	int movesSearched = 0;
+	// auto moves = genAllMoves(b);
+	// int movesSearched = 0;
 
 	// Score and sort moves
-	std::vector<Move> scoredMoves = scoreMoves(b, moves, ply);
-	std::sort(scoredMoves.begin(), scoredMoves.end(), [](const auto& a, const auto& b) { return a.score > b.score; });
+	// std::vector<Move> scoredMoves = scoreMoves(b, moves, ply);
+	// std::sort(scoredMoves.begin(), scoredMoves.end(), [](const auto& a, const auto& b) { return a.score > b.score; });
 
-	for (int i = 0, size = scoredMoves.size(); i < size; ++i) {
-		Move m = scoredMoves[i];
+	// Init move picking
+	int stage = START_PICK;
+	int movesSearched = 0;
+	std::vector<Move> moves;
+	auto entry = tt[b.key & TTMaxEntry];
+	Move hashMove = (entry.key == b.key) ? entry.move : NO_MOVE;
+
+	while (stage != NO_MOVES_LEFT) {
+		Move m = pickNextMove(b, hashMove, stage, moves, ply, movesSearched);
+		if (m == NO_MOVE) {
+			stage = NO_MOVES_LEFT;
+			break;
+		}
+
+		// Move flags
 		bool isCapture = (b.squares[m.getTo()] != EMPTY || m.getFlag() == EP_MOVE);
 		bool isPromotion = (m.getFlag() >= PROMOTION_KNIGHT);
 		bool isNoisy = (isCapture || isPromotion);
 		bool isKiller = (m == killers[0][ply] || m == killers[1][ply]);
 
 		// Futility pruning
-		if (fPrune && !isNoisy && !isKiller && movesSearched > 0) {
+		if (fPrune && !isNoisy && !isKiller && !isInCheck && movesSearched > 0) {
 			continue;
 		}
 
@@ -228,7 +243,6 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 		undoMove(b, m, u);
 
 		si.nodes++;
-		movesSearched++;
 
 		if (score >= beta) {
 			storeTT(b.key, depth, beta, TT_BETA, eval, ply, NO_MOVE);
@@ -243,7 +257,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 			if (!isNoisy && depth <= 12) historyMoves[b.turn][pieceType(b.squares[m.getFrom()])][m.getTo()] += depth * depth;
 
 			// Update move ordering info
-			if (movesSearched <= FAIL_HIGH_MOVES) si.failHigh[movesSearched - 1]++;
+			if (movesSearched <= FAIL_HIGH_MOVES && (ply > 3)) si.failHigh[movesSearched - 1]++;
 
 			return score;
 		}
