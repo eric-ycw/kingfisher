@@ -30,7 +30,7 @@ Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<
 			stage = NORMAL_PICK;
 			moves.clear();
 			auto unscoredMoves = genAllMoves(b);
-			moves = scoreMoves(b, unscoredMoves, ply);
+			moves = scoreMoves(b, unscoredMoves, ply, hashMove);
 			std::sort(moves.begin(), moves.end(), [](const auto& a, const auto& b) { return a.score > b.score; });
 
 			[[fallthrough]];
@@ -42,8 +42,9 @@ Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<
 			movesSearched++;
 
 			// Check if out of bounds
-			if (movesSearched > moves.size() - 1) {
-				assert(movesSearched == moves.size());
+			if (movesSearched > moves.size()) {
+				assert(movesSearched == moves.size() + 1);
+				movesSearched--;
 				return NO_MOVE;
 			}
 
@@ -55,9 +56,12 @@ Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<
 			}
 
 			// We skip the hash move
-			if (moves[movesSearched - 1] == hashMove) goto REPICK; // FIXME: Find a way to do this without goto
+			if (m == hashMove) {
+				movesSearched--;
+				goto REPICK; // FIXME: Find a way to do this without goto
+			}
 
-			return moves[movesSearched - 1];
+			return m;
 		}
 
 		default: {

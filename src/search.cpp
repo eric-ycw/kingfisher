@@ -68,10 +68,8 @@ int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& h
 	return historyScore;
 }
 
-std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply) {
+std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove) {
 	float phase = getPhase(b);
-	auto entry = tt[b.key & TTMaxEntry];
-	Move hashMove = (entry.key == b.key) ? entry.move : NO_MOVE;
 	int size = moves.size();
 	std::vector<Move> scoredMoves(size);
 
@@ -114,17 +112,14 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	bool nearMate = (alpha <= MATED_IN_MAX || alpha >= MATE_IN_MAX || beta <= MATED_IN_MAX || beta >= MATE_IN_MAX);
 	if (ply > si.seldepth) si.seldepth = ply;
 
-	// We check for time every 1024 nodes
-	if (!isRoot && ((si.nodes & 1023) == 0) && timeOver(si)) return alpha;
+	// We check for time every 512 nodes
+	if (!isRoot && (((si.nodes + si.qnodes) & 511) == 0) && timeOver(si)) return alpha;
 
 	int ttEval = NO_VALUE;
 
 	if (!isRoot) {
 		// Check for 3-fold repetition
-		if (drawnByRepetition(b)) {
-			// storeTT(b.key, MAX_PLY, 0, TT_EXACT, ttEval, ply, NO_MOVE);
-			return 0;
-		}
+		if (drawnByRepetition(b)) return 0;
 
 		// Mate distance pruning
 		int mAlpha = (alpha > -MATE_SCORE + ply) ? alpha : -MATE_SCORE + ply;
@@ -181,20 +176,14 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	// Futility pruning flag
 	bool fPrune = (depth <= futilityMaxDepth && !isInCheck && !isRoot && eval + futilityMargin * depth <= alpha);
 
-	// Generate all moves
-	// auto moves = genAllMoves(b);
-	// int movesSearched = 0;
-
-	// Score and sort moves
-	// std::vector<Move> scoredMoves = scoreMoves(b, moves, ply);
-	// std::sort(scoredMoves.begin(), scoredMoves.end(), [](const auto& a, const auto& b) { return a.score > b.score; });
-
 	// Init move picking
 	int stage = START_PICK;
 	int movesSearched = 0;
 	std::vector<Move> moves;
 	auto entry = tt[b.key & TTMaxEntry];
 	Move hashMove = (entry.key == b.key) ? entry.move : NO_MOVE;
+
+	// if (isInCheck) printBoard(b);
 
 	while (stage != NO_MOVES_LEFT) {
 		Move m = pickNextMove(b, hashMove, stage, moves, ply, movesSearched);
@@ -208,6 +197,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 		bool isPromotion = (m.getFlag() >= PROMOTION_KNIGHT);
 		bool isNoisy = (isCapture || isPromotion);
 		bool isKiller = (m == killers[0][ply] || m == killers[1][ply]);
+		bool isHash = (m == hashMove);
 
 		// Futility pruning
 		if (fPrune && !isNoisy && !isKiller && !isInCheck && movesSearched > 0) {
@@ -228,8 +218,10 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 		score = alpha + 1;
 
 		// Late move reduction
-		if (depth >= lateMoveMinDepth && movesSearched >= lateMoveMinMove && !isNoisy && !isInCheck) {
-			int lateMoveR = lateMoveBaseR + (movesSearched >= 6) * (depth / 3);
+		if (depth >= lateMoveMinDepth && !isNoisy && !isInCheck && !isHash) {
+			int lateMoveRIndex = std::min(movesSearched, 63);
+
+			int lateMoveR = lateMoveRTable[lateMoveRIndex];
 
 			// Decrease reduction if killer move
 			if (isKiller) lateMoveR -= 1;
@@ -453,7 +445,7 @@ void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 		}
 
 		si.print();
-		si.printMoveOrderingInfo();
+		// si.printMoveOrderingInfo();
 
 		research = false;
 

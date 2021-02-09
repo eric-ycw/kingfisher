@@ -85,7 +85,7 @@ struct SearchInfo {
 static constexpr int aspirationMinDepth = 5;
 static constexpr int aspirationWindow = 35;
 
-static constexpr int nullMoveBaseR = 3;
+static constexpr int nullMoveBaseR = 2;
 static constexpr int nullMoveMinDepth = 3;
 static constexpr float nullMovePhaseLimit = (float)0.2;
 
@@ -93,14 +93,19 @@ static constexpr int futilityMaxDepth = 8;
 static constexpr int futilityMargin = 150;
 static constexpr int deltaMargin = 125;
 
-static constexpr int lateMoveBaseR = 1;
 static constexpr int lateMoveMinDepth = 3;
-static constexpr int lateMoveMinMove = 4;
 
-static constexpr int lateMovePruningMaxDepth = 4;
+static constexpr int lateMoveRTable[64] = {
+	0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+	4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
+};
+
+static constexpr int lateMovePruningMaxDepth = 3;
 static constexpr int lateMovePruningMove = 7;
 
-static constexpr int hashMoveBonus = 500000;
+static constexpr int hashMoveBonus = INT_MAX - 1;
 
 static Move killers[2][MAX_PLY + 1];
 static constexpr int killerBonus[4] = { 8000, 7500, 7250, 7000 };
@@ -120,7 +125,7 @@ bool timeOver(const SearchInfo& si);
 void reduceHistory();
 
 int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& hashMove);
-std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply);
+std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove);
 
 int scoreNoisyMove(const Board& b, const Move& m);
 std::vector<Move> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves);
