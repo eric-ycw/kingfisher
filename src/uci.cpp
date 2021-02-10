@@ -8,6 +8,8 @@
 #include "types.h"
 #include "uci.h"
 
+static constexpr int TIME_BUFFER = 200;
+
 void parsePosition(Board& b, std::string input) {
 	// Erase "position "
 	input.erase(0, 9);
@@ -35,8 +37,8 @@ void parsePosition(Board& b, std::string input) {
 	}
 }
 void parseGo(Board& b, SearchInfo& si, std::string input) {
-	int depth = 0, moveTime = 0, time = 0;
-	int moveNum = 40;
+	int depth = 0, moveTime = -1, time = 0;
+	int movesToGo = -1;
 	int increment = 0, timeLeft = 0;
 
 	size_t pos;
@@ -47,35 +49,37 @@ void parseGo(Board& b, SearchInfo& si, std::string input) {
 		increment = std::stoi(input.substr(pos + 5));
 	}
 	if ((pos = input.find("wtime")) != std::string::npos && b.turn == WHITE) {
-		time = std::stoi(input.substr(pos + 6));
+		timeLeft = std::stoi(input.substr(pos + 6));
 	}
 	if ((pos = input.find("btime")) != std::string::npos && b.turn == BLACK) {
-		time = std::stoi(input.substr(pos + 6));
+		timeLeft = std::stoi(input.substr(pos + 6));
 	}
 	if ((pos = input.find("depth")) != std::string::npos) {
 		depth = std::stoi(input.substr(pos + 6));
 	}
 	if ((pos = input.find("movestogo")) != std::string::npos) {
-		moveNum = std::stoi(input.substr(pos + 10));
+		movesToGo = std::stoi(input.substr(pos + 10));
 	}
 	if ((pos = input.find("movetime")) != std::string::npos) {
 		moveTime = std::stoi(input.substr(pos + 9));
 	}
 
-	if (moveTime) {
-		time = moveTime;
-		moveNum = 1;
+	if (movesToGo >= 0) {
+		time = 0.9 * (timeLeft / (movesToGo + 5)) + increment * 0.9 - TIME_BUFFER;
+	} else {
+		time = (timeLeft + 20 * increment) / 35 - TIME_BUFFER;
 	}
 
-	if (time) {
+	if (moveTime >= 0) {
+		time = moveTime - TIME_BUFFER;
 		timeLeft = time;
-		time /= (moveNum + 5);
 	}
 
 	if (!depth) {
 		depth = MAX_PLY;
 	}
 
-	double total = time * 0.7 + increment * 0.7;
-	iterativeDeepening(b, si, total);
+	time = std::min(timeLeft, time);
+
+	iterativeDeepening(b, si, time);
 }

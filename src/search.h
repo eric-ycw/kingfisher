@@ -7,6 +7,7 @@
 #include "types.h"
 
 static constexpr int FAIL_HIGH_MOVES = 6;
+static constexpr int NEAR_LEAF_BOUNDARY = 8;
 
 struct SearchInfo {
 	int depth = 0;
@@ -18,7 +19,11 @@ struct SearchInfo {
 	double start = clock();
 	int limit = 0;
 	Move pv[MAX_PLY];
+
+	// ### DEBUG ###
 	int failHigh[3][FAIL_HIGH_MOVES];
+	int hashCount = 0;
+	int hashCut = 0;
 
 	void operator=(const SearchInfo& si) {
 		depth = si.depth;
@@ -33,11 +38,15 @@ struct SearchInfo {
 			if (si.pv[i] == NO_MOVE) break;
 			pv[i] = si.pv[i];
 		}
+
+		// ### DEBUG ###
 		for (int i = 0; i < FAIL_HIGH_MOVES; ++i) {
 			for (int j = 0; j < 3; ++j) {
 				failHigh[j][i] = si.failHigh[0][i];
 			}
 		}
+		hashCount = si.hashCount;
+		hashCut = si.hashCut;
 	}
 
 	void initTime(int limitParam) {
@@ -53,11 +62,15 @@ struct SearchInfo {
 		score = 0;
 		bestMove = NO_MOVE;
 		for (auto& m : pv) m = NO_MOVE;
+
+		// ### DEBUG ###
 		for (int i = 0; i < FAIL_HIGH_MOVES; ++i) {
 			for (int j = 0; j < 3; ++j) {
 				failHigh[j][i] = 0;
 			}
 		}
+		hashCount = 0;
+		hashCut = 0;
 	}
 
 	void print() {
@@ -78,7 +91,7 @@ struct SearchInfo {
 		std::cout << "\n";
 	}
 
-	void printMoveOrderingInfo() {
+	void printSearchDebug() {
 		int nearLeafTotal = 0;
 		int nearRootTotal = 0;
 		int qTotal = 0;
@@ -86,7 +99,8 @@ struct SearchInfo {
 		for (auto& i : failHigh[1]) nearRootTotal += i;
 		for (auto& i : failHigh[2]) qTotal += i;
 
-		static const std::string separator = "+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+\n";
+		std::cout << "Fail-high percentages by move order\n";
+		static const std::string separator = "+---+---+---+---+---+---+---+---+---+---+---+---+---+---+\n";
 
 		std::cout << separator;
 		std::cout << "Near-leaf: ";
@@ -106,7 +120,10 @@ struct SearchInfo {
 			std::cout << roundf((float)i / qTotal * 100 * 100) / 100 << "% | ";
 		}
 		std::cout << "\n";
-		std::cout << separator << "\n";
+		std::cout << separator;
+
+		std::cout << "Hash cut percentage : ";
+		std::cout << roundf((float)hashCut / hashCount * 100 * 100) / 100 << "%\n";
 	}
 };
 
@@ -138,9 +155,8 @@ static constexpr int hashMoveBonus = INT_MAX - 1;
 static Move killers[2][MAX_PLY + 1];
 static constexpr int killerBonus[4] = { -1, -2, -3, -4 };
 
-static constexpr int historyMax = 10000;
-static constexpr int historyMaxDepth = 12;
-static constexpr float historyAgingFactor = 0.9;
+static constexpr int historyMax = 5000;
+static constexpr int historyMaxDepth = 8;
 static int historyMoves[2][6][SQUARE_NUM];
 
 static constexpr int SEEValues[5] = { 
@@ -150,7 +166,7 @@ static constexpr int SEEValues[5] = {
 
 void initSearch(SearchInfo& si);
 
-bool timeOver(const SearchInfo& si);
+bool timeOver(const SearchInfo& si, const bool ignoreDepth);
 
 void reduceHistory();
 

@@ -28,8 +28,10 @@ void initSearch(SearchInfo& si) {
 	si.reset();
 }
 
-bool timeOver(const SearchInfo& si) {
-	return ((double)(clock() - si.start) / (CLOCKS_PER_SEC / 1000) >= si.limit);
+bool timeOver(const SearchInfo& si, const bool ignoreDepth) {
+	bool timeFlag = (ignoreDepth || (!ignoreDepth && si.depth > 1));
+	return (timeFlag && ((si.nodes + si.qnodes) % 2 == 0) &&
+		   ((double)(clock() - si.start) / (CLOCKS_PER_SEC / 1000) >= si.limit));
 }
 
 void reduceHistory() {
@@ -121,14 +123,32 @@ std::vector<Move> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves
 }
 
 int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[MAX_PLY], bool allowNull = true) {
-
 	bool isRoot = (!ply);
 	bool isPV = (alpha != beta - 1);
 	bool nearMate = (alpha <= MATED_IN_MAX || alpha >= MATE_IN_MAX || beta <= MATED_IN_MAX || beta >= MATE_IN_MAX);
+	bool isInCheck = inCheck(b, b.turn);
 	if (ply > si.seldepth) si.seldepth = ply;
 
-	// We check for time every 512 nodes
-	if (!isRoot && (((si.nodes + si.qnodes) & 511) == 0) && timeOver(si)) return alpha;
+	if (depth <= 0 && !isInCheck) {
+		// Depth is always non-negative
+		depth = 0;
+		if (isInCheck) {
+			// Check extension
+			depth++;
+		}
+		else {
+			// Drop into qsearch
+			return qsearch(b, ply, alpha, beta, si, si.pv);
+		}
+	}
+
+	// Initialize new PV
+	Move pv[MAX_PLY];
+	for (auto& p : pv) p = NO_MOVE;
+
+	si.nodes++;
+
+	if (timeOver(si, false)) return alpha;
 
 	int ttEval = NO_VALUE;
 
@@ -145,25 +165,6 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 		int TTScore = probeTT(b.key, depth, alpha, beta, ply, si, ttEval);
 		if (TTScore != NO_VALUE && !isPV) {
 			return TTScore;
-		}
-	}
-
-	// Initialize new PV
-	Move pv[MAX_PLY];
-	for (auto& p : pv) p = NO_MOVE;
-
-	bool isInCheck = inCheck(b, b.turn);
-
-	if (depth <= 0) {
-		// Depth is always non-negative
-		depth = 0;
-		if (inCheck(b, b.turn)) {
-			// Check extension
-			depth++;
-		}
-		else {
-			// Drop into qsearch
-			return qsearch(b, ply, alpha, beta, si, pv);
 		}
 	}
 
@@ -191,35 +192,49 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	// Futility pruning flag
 	bool fPrune = (depth <= futilityMaxDepth && !isInCheck && !isRoot && eval + futilityMargin * depth <= alpha);
 
-	// Init move picking
+	// Initialize move picking
 	int stage = START_PICK;
 	int movesSearched = 0;
+	int movesTried = 0;
 	std::vector<Move> moves;
 	auto entry = tt[b.key & TTMaxEntry];
 	Move hashMove = (entry.key == b.key) ? entry.move : NO_MOVE;
 
 
 	while (stage != NO_MOVES_LEFT) {
-		Move m = pickNextMove(b, hashMove, stage, moves, ply, movesSearched);
+		Move m = pickNextMove(b, hashMove, stage, moves, ply, movesTried);
 		if (m == NO_MOVE) {
 			stage = NO_MOVES_LEFT;
 			break;
 		}
 
+		// Move info
+		const int from = m.getFrom();
+		const int to = m.getTo();
+		const int flag = m.getFlag();
+
 		// Move flags
-		bool isCapture = (b.squares[m.getTo()] != EMPTY || m.getFlag() == EP_MOVE);
-		bool isPromotion = (m.getFlag() >= PROMOTION_KNIGHT);
+		bool isCapture = (b.squares[to] != EMPTY || flag == EP_MOVE);
+		bool isPromotion = (flag >= PROMOTION_KNIGHT);
 		bool isNoisy = (isCapture || isPromotion);
 		bool isKiller = (m == killers[0][ply] || m == killers[1][ply]);
 		bool isHash = (m == hashMove);
 
+		bool isDangerousPawn = (b.turn == WHITE) ? 
+							   (b.squares[from] == W_PAWN && checkBit(rank6Mask | rank7Mask | rank8Mask, to)) :
+							   (b.squares[from] == B_PAWN && checkBit(rank1Mask | rank2Mask | rank3Mask, to));
+		
+
+		bool canPrune = (!isNoisy && !isKiller && !isInCheck && !isDangerousPawn && !isHash);
+
+
 		// Futility pruning
-		if (fPrune && !isNoisy && !isKiller && !isInCheck && movesSearched > 0) {
+		if (fPrune && canPrune && movesSearched > 0) {
 			continue;
 		}
 
 		// Late move pruning
-		if (depth <= lateMovePruningMaxDepth && movesSearched >= lateMovePruningMove * depth && !isNoisy && !isKiller && !isInCheck) {
+		if (depth <= lateMovePruningMaxDepth && movesSearched >= lateMovePruningMove * depth && canPrune) {
 			continue;
 		}
 
@@ -229,13 +244,16 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 			continue;
 		}
 
+		movesSearched++;
+
+		bool isCheck = inCheck(b, b.turn);
+		if (isHash) si.hashCount++;
+
 		score = alpha + 1;
 
 		// Late move reduction
-		if (depth >= lateMoveMinDepth && !isNoisy && !isInCheck && !isHash) {
-			int lateMoveRi = std::min(movesSearched, 63);
-
-			int lateMoveR = lateMoveRTable[lateMoveRi];
+		if (depth >= lateMoveMinDepth && !isNoisy && !isInCheck && !isCheck && !isDangerousPawn && !isHash) {
+			int lateMoveR = lateMoveRTable[std::min(movesSearched, 63)];
 
 			// Decrease reduction if killer move
 			if (isKiller) lateMoveR -= 1;
@@ -248,10 +266,8 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 		undoMove(b, m, u);
 
-		si.nodes++;
-
 		if (score >= beta) {
-			storeTT(b.key, depth, beta, TT_BETA, eval, ply, NO_MOVE);
+			storeTT(b.key, depth, beta, TT_BETA, eval, ply, m);
 
 			// Update killers
 			if (!isNoisy && m != killers[0][ply]) {
@@ -262,11 +278,15 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 			// Update history score
 			if (!isNoisy && depth <= historyMaxDepth) historyMoves[b.turn][pieceType(b.squares[m.getFrom()])][m.getTo()] += depth * depth;
 
+			// ### DEBUG ###
 			// Update near-leaf move ordering info
-			if (movesSearched <= FAIL_HIGH_MOVES && (depth < 5)) si.failHigh[0][movesSearched - 1]++;
+			if (movesSearched <= FAIL_HIGH_MOVES && (depth < NEAR_LEAF_BOUNDARY)) si.failHigh[0][movesSearched - 1]++;
 
 			// Update near-root move ordering info
-			if (movesSearched <= FAIL_HIGH_MOVES && (depth >= 5)) si.failHigh[1][movesSearched - 1]++;
+			if (movesSearched <= FAIL_HIGH_MOVES && (depth >= NEAR_LEAF_BOUNDARY)) si.failHigh[1][movesSearched - 1]++;
+
+			// Update hash cut info
+			if (m == hashMove) si.hashCut++;
 
 			return score;
 		}
@@ -301,6 +321,10 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[MAX_PLY]) {
 	if (ply > si.seldepth) si.seldepth = ply;
+
+	si.qnodes++;
+
+	if (timeOver(si, true)) return alpha;
 
 	// Check for draw
 	if (drawnByRepetition(b)) return 0;
@@ -338,8 +362,6 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 
 		int score = -qsearch(b, ply + 1, -beta, -alpha, si, pv);
 		undoMove(b, m, u);
-
-		si.qnodes++;
 
 		if (score >= beta) {
 			// Update near-root move ordering info
@@ -456,7 +478,7 @@ void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 		si.depth = i;
 
 		int score = search(b, i, 0, alpha, beta, si, si.pv);
-		if (timeOver(si)) break;
+		if (timeOver(si, true)) break;
 		
 		if ((score <= alpha) || (score >= beta)) {
 			alpha = -MATE_SCORE;
@@ -467,7 +489,7 @@ void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 		}
 
 		si.print();
-		// si.printMoveOrderingInfo();
+		// si.printSearchDebug();
 
 		research = false;
 

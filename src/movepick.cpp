@@ -7,7 +7,7 @@
 #include "search.h"
 #include "types.h"
 
-Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<Move>& moves, const int& ply, int& movesSearched) {
+Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<Move>& moves, const int& ply, int& movesTried) {
 
 	switch (stage) {
 		
@@ -19,7 +19,7 @@ Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<
 		case TT_PICK: { // We try move from hash table first
 			stage = NORMAL_GEN;
 			if (hashMove != NO_MOVE && moveIsPsuedoLegal(b, hashMove)) {
-				movesSearched++;
+				movesTried++;
 				return hashMove;
 			}
 			
@@ -42,16 +42,16 @@ Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<
 		case NORMAL_PICK: {
 			REPICK:
 
-			movesSearched++;
+			movesTried++;
 
 			// Check if out of bounds
-			if (movesSearched > moves.size()) {
-				assert(movesSearched == moves.size() + 1);
-				movesSearched--;
+			if (movesTried > moves.size()) {
+				assert(movesTried == moves.size() + 1);
+				movesTried--;
 				return NO_MOVE;
 			}
 
-			Move m = moves[movesSearched - 1];
+			Move m = moves[movesTried - 1];
 			if (!moveIsPsuedoLegal(b, m)) {
 				printBoard(b);
 				std::cout << toNotation(m) << "\n";
@@ -60,7 +60,7 @@ Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<
 
 			// We skip the hash move
 			if (m == hashMove) {
-				movesSearched--;
+				movesTried--;
 				goto REPICK; // FIXME: Find a way to do this without goto
 			}
 
