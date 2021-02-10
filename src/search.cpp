@@ -42,13 +42,28 @@ void reduceHistory() {
 	}
 }
 
-int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& hashMove) {
+int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& hashMove, bool& ageHistory) {
+	/*
+
+	1. Hash move
+	2. Good captures/promotions
+	3. Equal captures (0)
+	4. Killer moves
+	5. History moves (-5 to -10000)
+	6. Bad captures
+
+	*/
+
+	const int from = m.getFrom();
+	const int to = m.getTo();
+	const int flag = m.getFlag();
+
 	// Hash move
 	if (m == hashMove) return hashMoveBonus;
 
 	// Noisy moves
-	if (b.squares[m.getTo()] != EMPTY || m.getFlag() == EP_MOVE || m.getFlag() >= PROMOTION_KNIGHT) {
-		return (staticExchangeEvaluation(b, m)) ? scoreNoisyMove(b, m) : -1000;
+	if (b.squares[to] != EMPTY || flag == EP_MOVE || flag >= PROMOTION_KNIGHT) {
+		return (staticExchangeEvaluation(b, m)) ? scoreNoisyMove(b, m) : INT_MIN + 1;
 	}
 
 	// Killer moves
@@ -60,22 +75,22 @@ int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& h
 	}
 
 	// History heuristic
-	int historyScore = historyMoves[b.turn][pieceType(b.squares[m.getFrom()])][m.getTo()];
-	if (historyScore >= historyMax || historyScore <= -historyMax) { 
-		historyScore /= 2;
-		reduceHistory(); 
+	int historyScore = historyMoves[b.turn][pieceType(b.squares[from])][to];
+	if (historyScore >= historyMax) { 
+		historyScore = historyMax;
+		ageHistory = true;
 	}
-	return historyScore;
+	return (-historyMax - 5) + historyScore;
 }
 
-std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove) {
+std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove, bool& ageHistory) {
 	float phase = getPhase(b);
 	int size = moves.size();
 	std::vector<Move> scoredMoves(size);
 
 	for (int i = 0; i < size; ++i) {
 		scoredMoves[i] = moves[i];
-		scoredMoves[i].score = scoreMove(b, moves[i], ply, phase, hashMove);
+		scoredMoves[i].score = scoreMove(b, moves[i], ply, phase, hashMove, ageHistory);
 	}
 	return scoredMoves;
 }
@@ -183,7 +198,6 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	auto entry = tt[b.key & TTMaxEntry];
 	Move hashMove = (entry.key == b.key) ? entry.move : NO_MOVE;
 
-	// if (isInCheck) printBoard(b);
 
 	while (stage != NO_MOVES_LEFT) {
 		Move m = pickNextMove(b, hashMove, stage, moves, ply, movesSearched);
@@ -246,10 +260,13 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 			}
 
 			// Update history score
-			if (!isNoisy && depth <= 12) historyMoves[b.turn][pieceType(b.squares[m.getFrom()])][m.getTo()] += depth * depth;
+			if (!isNoisy && depth <= historyMaxDepth) historyMoves[b.turn][pieceType(b.squares[m.getFrom()])][m.getTo()] += depth * depth;
 
-			// Update move ordering info
-			if (movesSearched <= FAIL_HIGH_MOVES && (ply > 3)) si.failHigh[movesSearched - 1]++;
+			// Update near-leaf move ordering info
+			if (movesSearched <= FAIL_HIGH_MOVES && (depth < 5)) si.failHigh[0][movesSearched - 1]++;
+
+			// Update near-root move ordering info
+			if (movesSearched <= FAIL_HIGH_MOVES && (depth >= 5)) si.failHigh[1][movesSearched - 1]++;
 
 			return score;
 		}
@@ -324,7 +341,12 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 
 		si.qnodes++;
 
-		if (score >= beta) return beta;
+		if (score >= beta) {
+			// Update near-root move ordering info
+			if ((i + 1) <= FAIL_HIGH_MOVES) si.failHigh[2][i]++;
+
+			return beta;
+		}
 		if (score > alpha) {
 			alpha = score;
 
@@ -445,7 +467,7 @@ void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 		}
 
 		si.print();
-		si.printMoveOrderingInfo();
+		// si.printMoveOrderingInfo();
 
 		research = false;
 

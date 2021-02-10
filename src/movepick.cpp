@@ -28,9 +28,12 @@ Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<
 
 		case NORMAL_GEN: { // We generate, score and sort the rest of the moves
 			stage = NORMAL_PICK;
+			bool ageHistory = false;
 			moves.clear();
+
 			auto unscoredMoves = genAllMoves(b);
-			moves = scoreMoves(b, unscoredMoves, ply, hashMove);
+			moves = scoreMoves(b, unscoredMoves, ply, hashMove, ageHistory);
+			if (ageHistory) reduceHistory();
 			std::sort(moves.begin(), moves.end(), [](const auto& a, const auto& b) { return a.score > b.score; });
 
 			[[fallthrough]];

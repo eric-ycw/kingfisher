@@ -219,16 +219,16 @@ void printBoard(const Board& b) {
 	std::cout << "Fifty move counter: " << b.fiftyMove << "\n";
 	std::cout << "Piece-square table score: " << b.psqt << "\n";
 	std::cout << "Evaluation: " << evaluate(b, WHITE) << "\n";
-	std::cout << "\n";
 }
 
 uint64_t perft(Board& b, int depth, int ply) {
 	auto start = (!ply) ? clock() : 0;
 	if (depth == 0) return 1ull;
 	// Use transposition table
+	// FIXME: Perft tt is bugged for some reason
 	int pttnodes = probePTT(b.key, depth);
 	if (pttnodes != NO_NODES) {
-		return pttnodes;
+		// return pttnodes;
 	}
 	uint64_t count = 0ull;
 	auto moves = genAllMoves(b);

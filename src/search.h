@@ -18,7 +18,7 @@ struct SearchInfo {
 	double start = clock();
 	int limit = 0;
 	Move pv[MAX_PLY];
-	int failHigh[FAIL_HIGH_MOVES];
+	int failHigh[3][FAIL_HIGH_MOVES];
 
 	void operator=(const SearchInfo& si) {
 		depth = si.depth;
@@ -34,7 +34,9 @@ struct SearchInfo {
 			pv[i] = si.pv[i];
 		}
 		for (int i = 0; i < FAIL_HIGH_MOVES; ++i) {
-			failHigh[i] = si.failHigh[i];
+			for (int j = 0; j < 3; ++j) {
+				failHigh[j][i] = si.failHigh[0][i];
+			}
 		}
 	}
 
@@ -51,7 +53,11 @@ struct SearchInfo {
 		score = 0;
 		bestMove = NO_MOVE;
 		for (auto& m : pv) m = NO_MOVE;
-		for (auto& i : failHigh) i = 0;
+		for (int i = 0; i < FAIL_HIGH_MOVES; ++i) {
+			for (int j = 0; j < 3; ++j) {
+				failHigh[j][i] = 0;
+			}
+		}
 	}
 
 	void print() {
@@ -73,12 +79,34 @@ struct SearchInfo {
 	}
 
 	void printMoveOrderingInfo() {
-		int total = 0;
-		for (auto& i : failHigh) total += i;
-		for (auto& i : failHigh) {
-			std::cout << (float)i / total * 100 << "% - ";
+		int nearLeafTotal = 0;
+		int nearRootTotal = 0;
+		int qTotal = 0;
+		for (auto& i : failHigh[0]) nearLeafTotal += i;
+		for (auto& i : failHigh[1]) nearRootTotal += i;
+		for (auto& i : failHigh[2]) qTotal += i;
+
+		static const std::string separator = "+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+\n";
+
+		std::cout << separator;
+		std::cout << "Near-leaf: ";
+		for (auto& i : failHigh[0]) {
+			std::cout << roundf((float)i / nearLeafTotal * 100 * 100) / 100 << "% | ";
 		}
 		std::cout << "\n";
+
+		std::cout << "Near-root: ";
+		for (auto& i : failHigh[1]) {
+			std::cout << roundf((float)i / nearRootTotal * 100 * 100) / 100 << "% | ";
+		}
+		std::cout << "\n";
+
+		std::cout << "Qsearch: ";
+		for (auto& i : failHigh[2]) {
+			std::cout << roundf((float)i / qTotal * 100 * 100) / 100 << "% | ";
+		}
+		std::cout << "\n";
+		std::cout << separator << "\n";
 	}
 };
 
@@ -108,9 +136,11 @@ static constexpr int lateMovePruningMove = 7;
 static constexpr int hashMoveBonus = INT_MAX - 1;
 
 static Move killers[2][MAX_PLY + 1];
-static constexpr int killerBonus[4] = { 8000, 7500, 7250, 7000 };
+static constexpr int killerBonus[4] = { -1, -2, -3, -4 };
 
-static constexpr int historyMax = 6400;
+static constexpr int historyMax = 10000;
+static constexpr int historyMaxDepth = 12;
+static constexpr float historyAgingFactor = 0.9;
 static int historyMoves[2][6][SQUARE_NUM];
 
 static constexpr int SEEValues[5] = { 
@@ -124,8 +154,8 @@ bool timeOver(const SearchInfo& si);
 
 void reduceHistory();
 
-int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& hashMove);
-std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove);
+int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& hashMove, bool& ageHistory);
+std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove, bool& ageHistory);
 
 int scoreNoisyMove(const Board& b, const Move& m);
 std::vector<Move> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves);
