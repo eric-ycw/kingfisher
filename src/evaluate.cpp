@@ -2,6 +2,7 @@
 #include "bitboard.h"
 #include "board.h"
 #include "evaluate.h"
+#include "tt.h"
 #include "types.h"
 
 int psqtScore(int piece, int sqr, float phase) {
@@ -71,29 +72,38 @@ int evaluate(const Board& b, int color) {
 }
 
 int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, int color, float phase) {
+	// Probe pawn hash table
 	int eval = 0;
+	int hashEval = probePawnHash(pawns, color);
+	if (hashEval != NO_VALUE) {
+		eval = hashEval;
+	} else {
+		// Supported pawns
+		int supported = (countBits((pawns & ((color == WHITE) ? (pawns >> 7) & ~fileAMask : (pawns << 7) & ~fileHMask)) |
+						(pawns & ((color == WHITE) ? (pawns >> 9) & ~fileHMask : (pawns << 9) & ~fileAMask)))) *
+						supportedPawnBonus;
 
-	// Supported pawns
-	eval += (countBits((pawns & ((color == WHITE) ? (pawns >> 7) & ~fileAMask : (pawns << 7) & ~fileHMask)) |
-			(pawns & ((color == WHITE) ? (pawns >> 9) & ~fileHMask : (pawns << 9) & ~fileAMask)))) *
-			 supportedPawnBonus;
+		// Phalanx pawns
+		int phalanx = (countBits((pawns & (pawns >> 1) & ~fileHMask) | (pawns & (pawns << 1) & ~fileAMask))) * phalanxPawnBonus;
 
-	// Phalanx pawns
-	eval += (countBits((pawns & (pawns >> 1) & ~fileHMask) | (pawns & (pawns << 1) & ~fileAMask))) * phalanxPawnBonus;
+		// Doubled pawns
+		int doubled = 0;
+		for (int i = 0; i < 8; ++i) {
+			if (countBits(pawns & fileMasks[i]) > 1) doubled -= doubledPawnPenalty;
+		}
 
-	// Doubled pawns
-	for (int i = 0; i < 8; ++i) {
-		if (countBits(pawns & fileMasks[i]) > 1) eval -= doubledPawnPenalty;
+		eval = supported + phalanx - doubled;
+		storePawnHash(pawns, eval, color);
 	}
 
 	while (pawns) {
 		int sqr = popBit(pawns);
 		// Passed pawn
 		int passedRank = passed(b, sqr, enemyPawns, color);
-		int passedScore = taperedScore(passedBonus[passedRank][MG], passedBonus[passedRank][EG], phase);
-		// Reduce bonus if passed pawn is blockaded
-		eval += (b.squares[sqr + (color == WHITE) * 8] == EMPTY) ? passedScore : passedScore / passedBlockReduction;
+		int baseScore = taperedScore(passedBonus[passedRank][MG], passedBonus[passedRank][EG], phase);
+		eval += (b.squares[sqr + (color == WHITE) * 8] == EMPTY) ? baseScore : baseScore / passedBlockReduction;
 	}
+
 	return eval;
 }
 

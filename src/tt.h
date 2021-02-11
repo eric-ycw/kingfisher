@@ -34,6 +34,13 @@ struct qHashInfo {
 	uint64_t key = 0;
 };
 
+struct pHashInfo {
+	pHashInfo() {};
+	int staticEval = NO_VALUE;
+	int color = NO_COLOR;
+	uint64_t key = 0;
+};
+
 static constexpr int TTMaxEntry = 0xfffff;
 static constexpr int TTAgeLimit = 6;
 extern TTInfo tt[TTMaxEntry];
@@ -41,15 +48,21 @@ extern TTInfo tt[TTMaxEntry];
 static constexpr int qHashMaxEntry = 0xfffff;
 extern qHashInfo qhash[qHashMaxEntry];
 
-int probeTT(const uint64_t& key, int depth, int alpha, int beta, int ply, SearchInfo& si, int& ttEval);
+static constexpr int pHashMaxEntry = 0xfff;
+extern pHashInfo phash[pHashMaxEntry];
+
+int probeTT(const uint64_t& key, const int& depth, const int& alpha, const int& beta, const int& ply, SearchInfo& si, int& ttEval);
 Move probeHashMove(const uint64_t& key);
-void storeTT(const uint64_t& key, int depth, int score, int flag, int eval, int ply, const Move& m);
+void storeTT(const uint64_t& key, const int& depth, const int& score, const int& flag, const int& eval, const int& ply, const Move& m);
 
 int probePTT(const uint64_t& key, int depth);
 void storePTT(const uint64_t& key, int depth, int nodes);
 
 int probeQHash(const uint64_t& key);
-int storeQHash(const uint64_t& key, int eval);
+int storeQHash(const uint64_t& key, const int& eval);
+
+int probePawnHash(const uint64_t& key, const int& color);
+int storePawnHash(const uint64_t& key, const int& staticEval, const int& color);
 
 void ageTT();
 

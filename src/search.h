@@ -103,16 +103,18 @@ struct SearchInfo {
 	}
 
 	void printSearchDebug() {
-		std::cout << "\n+---+---+ ### NODES ### +---+---+\n";
+		std::cout << "\n+---+---+ ### NODES ### +---+---+\n\n";
 
 		float elapsed = (double)(clock() - start) / (CLOCKS_PER_SEC);
 
-		std::cout << "\nnodes: " << nodes << " | qnodes: " << qnodes << "\n";
-		std::cout << "\nnps: " << nodes / elapsed << " | qnps: " << qnodes / elapsed << "\n";
+		std::cout << "nodes: " << nodes << " | qnodes: " << qnodes << "\n";
+		std::cout << "nps: " << nodes / elapsed << " | qnps: " << qnodes / elapsed << "\n";
 
-		std::cout << "qhash eval hit: " << roundf((float)qHashHit / qnodes * 100 * 100) / 100 << "%\n";
+		std::cout << "\n+---+---+ ### HASH ### +---+---+\n\n";
 
-		std::cout << "\n+---+---+ ### MOVE ORDERING ### +---+---+\n";
+		std::cout << "q-search eval hash hit: " << roundf((float)qHashHit / qnodes * 100 * 100) / 100 << "%\n";
+
+		std::cout << "\n+---+---+ ### MOVE ORDERING ### +---+---+\n\n";
 
 		int nearLeafTotal = 0;
 		int nearRootTotal = 0;
@@ -121,7 +123,7 @@ struct SearchInfo {
 		for (auto& i : failHigh[1]) nearRootTotal += i;
 		for (auto& i : failHigh[2]) qTotal += i;
 
-		std::cout << "\nfail-high percentages by move order\n";
+		std::cout << "fail-high percentages by move order\n";
 		std::cout << "near-leaf: ";
 		for (auto& i : failHigh[0]) {
 			std::cout << roundf((float)i / nearLeafTotal * 100 * 100) / 100 << "% | ";
@@ -134,7 +136,7 @@ struct SearchInfo {
 		}
 		std::cout << "\n";
 
-		std::cout << "qsearch: ";
+		std::cout << "q-search: ";
 		for (auto& i : failHigh[2]) {
 			std::cout << roundf((float)i / qTotal * 100 * 100) / 100 << "% | ";
 		}

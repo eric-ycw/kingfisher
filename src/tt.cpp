@@ -7,8 +7,9 @@
 TTInfo tt[TTMaxEntry];
 PTTInfo ptt[TTMaxEntry];
 qHashInfo qhash[qHashMaxEntry];
+pHashInfo phash[pHashMaxEntry];
 
-int probeTT(const uint64_t& key, int depth, int alpha, int beta, int ply, SearchInfo& si, int& ttEval) {
+int probeTT(const uint64_t& key, const int& depth, const int& alpha, const int& beta, const int& ply, SearchInfo& si, int& ttEval) {
 	// We have 4 buckets per index
 	// Rightmost 32 bits of hash are used to get index
 	// Leftmost 32 bits of hash are used for verification
@@ -50,7 +51,7 @@ Move probeHashMove(const uint64_t& key) {
 	return NO_MOVE;
 }
 
-void storeTT(const uint64_t& key, int depth, int score, int flag, int eval, int ply, const Move& m) {
+void storeTT(const uint64_t& key, const int& depth, const int& score, const int& flag, const int& eval, const int& ply, const Move& m) {
 	int index = (uint32_t)key & TTMaxEntry;
 
 	bool stored = false;
@@ -106,11 +107,24 @@ int probeQHash(const uint64_t& key) {
 	return (entry.key == key) ? entry.eval : NO_VALUE;
 }
 
-int storeQHash(const uint64_t& key, int eval) {
+int storeQHash(const uint64_t& key, const int& eval) {
 	auto& entry = qhash[key & qHashMaxEntry];
 	// Always replace
 	entry.key = key;
 	entry.eval = eval;
+}
+
+int probePawnHash(const uint64_t& key, const int& color) {
+	auto& entry = phash[key & pHashMaxEntry];
+	return (entry.key == key && entry.color == color) ? entry.staticEval : NO_VALUE;
+}
+
+int storePawnHash(const uint64_t& key, const int& staticEval, const int& color) {
+	auto& entry = phash[key & pHashMaxEntry];
+	// Always replace
+	entry.key = key;
+	entry.staticEval = staticEval;
+	entry.color = color;
 }
 
 void ageTT() {
