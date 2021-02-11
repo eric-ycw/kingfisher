@@ -254,7 +254,9 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 		// Late move reduction
 		if (depth >= lateMoveMinDepth && !isNoisy && !isInCheck && !isCheck && !isDangerousPawn && !isHash) {
-			int lateMoveR = lateMoveRTable[std::min(movesSearched, 63)];
+			int lmrIndex = (depth > 12);
+
+			int lateMoveR = lateMoveRTable[lmrIndex][std::min(movesSearched, 63)];
 
 			// Decrease reduction if killer move
 			if (isKiller) lateMoveR -= 1;
