@@ -92,6 +92,10 @@ struct SearchInfo {
 	}
 
 	void printSearchDebug() {
+		std::cout << "\n+---+---+ ### NODES ### +---+---+\n";
+
+		std::cout << "\nnodes: " << nodes << " | qnodes: " << qnodes << "\n";
+
 		int nearLeafTotal = 0;
 		int nearRootTotal = 0;
 		int qTotal = 0;
@@ -99,31 +103,29 @@ struct SearchInfo {
 		for (auto& i : failHigh[1]) nearRootTotal += i;
 		for (auto& i : failHigh[2]) qTotal += i;
 
-		std::cout << "Fail-high percentages by move order\n";
-		static const std::string separator = "+---+---+---+---+---+---+---+---+---+---+---+---+---+---+\n";
-
-		std::cout << separator;
-		std::cout << "Near-leaf: ";
+		std::cout << "\n+---+---+ ### MOVE ORDERING ### +---+---+\n";
+		std::cout << "\nfail-high percentages by move order\n";
+		std::cout << "near-leaf: ";
 		for (auto& i : failHigh[0]) {
 			std::cout << roundf((float)i / nearLeafTotal * 100 * 100) / 100 << "% | ";
 		}
 		std::cout << "\n";
 
-		std::cout << "Near-root: ";
+		std::cout << "near-root: ";
 		for (auto& i : failHigh[1]) {
 			std::cout << roundf((float)i / nearRootTotal * 100 * 100) / 100 << "% | ";
 		}
 		std::cout << "\n";
 
-		std::cout << "Qsearch: ";
+		std::cout << "qsearch: ";
 		for (auto& i : failHigh[2]) {
 			std::cout << roundf((float)i / qTotal * 100 * 100) / 100 << "% | ";
 		}
 		std::cout << "\n";
-		std::cout << separator;
 
-		std::cout << "Hash cut percentage : ";
+		std::cout << "hash cut percentage : ";
 		std::cout << roundf((float)hashCut / hashCount * 100 * 100) / 100 << "%\n";
+		std::cout << "\n";
 	}
 };
 
