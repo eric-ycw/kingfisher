@@ -28,11 +28,12 @@ void initSearch(SearchInfo& si) {
 	si.reset();
 }
 
-bool timeOver(const SearchInfo& si, const bool ignoreDepth, const bool ignoreNodeCount) {
+void timeCheck(SearchInfo& si, const bool ignoreDepth, const bool ignoreNodeCount) {
 	bool depthFlag = (ignoreDepth || (!ignoreDepth && si.depth > 1));
-	bool nodeFlag = (ignoreDepth || (!ignoreNodeCount && (((si.nodes + si.qnodes) % 2) == 0)));
-	return (depthFlag && nodeFlag &&
-		   ((double)(clock() - si.start) / (CLOCKS_PER_SEC / 1000) >= si.limit));
+	bool nodeFlag = (ignoreNodeCount|| (!ignoreNodeCount && (((si.nodes + si.qnodes) & 1023) == 0)));
+	if (depthFlag && nodeFlag) {
+		si.abort = ((double)(clock() - si.start) / (CLOCKS_PER_SEC / 1000) >= si.limit);
+	}
 }
 
 void reduceHistory() {
@@ -149,7 +150,8 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 	si.nodes++;
 
-	if (timeOver(si, false, false)) return alpha;
+	timeCheck(si, false, false);
+	if (si.abort) return alpha;
 
 	int ttEval = NO_VALUE;
 
@@ -326,7 +328,8 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 
 	si.qnodes++;
 
-	if (timeOver(si, true, false)) return alpha;
+	timeCheck(si, true, false);
+	if (si.abort) return alpha;
 
 	// Check for draw
 	if (drawnByRepetition(b)) return 0;
@@ -492,7 +495,8 @@ void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 		si.depth = i;
 
 		int score = search(b, i, 0, alpha, beta, si, si.pv);
-		if (timeOver(si, true, true)) break;
+		timeCheck(si, true, true);
+		if (si.abort) break;
 		
 		if ((score <= alpha) || (score >= beta)) {
 			alpha = -MATE_SCORE;

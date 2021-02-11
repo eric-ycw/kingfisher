@@ -15,9 +15,12 @@ struct SearchInfo {
 	int nodes = 0;
 	int qnodes = 0;
 	int score = 0;
-	Move bestMove = NO_MOVE;
+
 	double start = clock();
 	int limit = 0;
+	bool abort = false;
+
+	Move bestMove = NO_MOVE;
 	Move pv[MAX_PLY];
 
 	// ### DEBUG ###
@@ -32,13 +35,17 @@ struct SearchInfo {
 		nodes = si.nodes;
 		qnodes = si.qnodes;
 		score = si.score;
-		bestMove = si.bestMove;
+
 		start = si.start;
 		limit = si.limit;
+		
+		bestMove = si.bestMove;
 		for (int i = 0; i < MAX_PLY; ++i) {
 			if (si.pv[i] == NO_MOVE) break;
 			pv[i] = si.pv[i];
 		}
+
+		abort = si.abort;
 
 		// ### DEBUG ###
 		for (int i = 0; i < FAIL_HIGH_MOVES; ++i) {
@@ -62,6 +69,7 @@ struct SearchInfo {
 		nodes = 0;
 		qnodes = 0;
 		score = 0;
+		
 		bestMove = NO_MOVE;
 		for (auto& m : pv) m = NO_MOVE;
 
@@ -186,7 +194,7 @@ static constexpr int SEEValues[5] = {
 
 void initSearch(SearchInfo& si);
 
-bool timeOver(const SearchInfo& si, const bool ignoreDepth, const bool ignoreNodeCount);
+void timeOver(SearchInfo& si, const bool ignoreDepth, const bool ignoreNodeCount);
 
 void reduceHistory();
 
