@@ -198,8 +198,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	int movesSearched = 0;
 	int movesTried = 0;
 	std::vector<Move> moves;
-	auto entry = tt[b.key & TTMaxEntry];
-	Move hashMove = (entry.key == b.key) ? entry.move : NO_MOVE;
+	Move hashMove = probeHashMove(b.key);
 
 
 	while (stage != NO_MOVES_LEFT) {
@@ -356,6 +355,8 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 	Move pv[MAX_PLY];
 	for (auto& m : pv) m = NO_MOVE;
 
+	int movesSearched = 0;
+
 	for (int i = 0, size = scoredNoisyMoves.size(); i < size; ++i) {
 		Move m = scoredNoisyMoves[i];
 
@@ -371,12 +372,14 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 			continue;
 		}
 
+		movesSearched++;
+
 		int score = -qsearch(b, ply + 1, -beta, -alpha, si, pv);
 		undoMove(b, m, u);
 
 		if (score >= beta) {
 			// Update qsearch move ordering info
-			if ((i + 1) <= FAIL_HIGH_MOVES) si.failHigh[2][i]++;
+			if (movesSearched <= FAIL_HIGH_MOVES) si.failHigh[2][movesSearched - 1]++;
 
 			return beta;
 		}

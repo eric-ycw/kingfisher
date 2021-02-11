@@ -42,6 +42,7 @@ static constexpr int qHashMaxEntry = 0xfffff;
 extern qHashInfo qhash[qHashMaxEntry];
 
 int probeTT(const uint64_t& key, int depth, int alpha, int beta, int ply, SearchInfo& si, int& ttEval);
+Move probeHashMove(const uint64_t& key);
 void storeTT(const uint64_t& key, int depth, int score, int flag, int eval, int ply, const Move& m);
 
 int probePTT(const uint64_t& key, int depth);
