@@ -10,7 +10,7 @@ static inline float taperedScore(int mg, int eg, float phase) {
 constexpr float materialSum = (float)(100 * 8 + 400 * 2 + 420 * 2 + 650 * 2 + 1250) * 2;
 
 constexpr int pieceValues[5][2] = {
-	{100, 120}, {400, 380}, {420, 400}, {650, 700}, {1250, 1270}
+	{100, 120}, {400, 380}, {420, 400}, {650, 600}, {1350, 1270}
 };
 
 static constexpr int pawnPSQT[32] = {
@@ -81,9 +81,9 @@ static constexpr int phalanxPawnBonus = 8;
 static constexpr int doubledPawnPenalty = 32;
 
 static constexpr int passedBonus[7][2] = {
-	{0, 0}, {0, 20}, {5, 40}, {15, 80}, {60, 120}, {140, 240}, {320, 480}
+	{0, 0}, {0, 20}, {5, 40}, {15, 60}, {50, 100}, {120, 180}, {250, 360}
 };
-static constexpr double passedBlockReduction = 1.75;
+static constexpr double passedBlockReduction = 2;
 
 static constexpr int knightMobility[28]
 {
