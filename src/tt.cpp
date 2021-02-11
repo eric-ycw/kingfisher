@@ -6,6 +6,7 @@
 
 TTInfo tt[TTMaxEntry];
 PTTInfo ptt[TTMaxEntry];
+qHashInfo qhash[qHashMaxEntry];
 
 int probeTT(const uint64_t& key, int depth, int alpha, int beta, int ply, SearchInfo& si, int& ttEval) {
 	auto& entry = tt[key & TTMaxEntry];
@@ -30,11 +31,6 @@ int probeTT(const uint64_t& key, int depth, int alpha, int beta, int ply, Search
 	return NO_VALUE;
 }
 
-int probePTT(const uint64_t& key, int depth) {
-	auto& entry = ptt[key & TTMaxEntry];
-	return (entry.key == key && entry.depth == depth) ? entry.nodes : NO_NODES;
-}
-
 void storeTT(const uint64_t& key, int depth, int score, int flag, int eval, int ply, const Move& m) {
 	auto& entry = tt[key & TTMaxEntry];
 	entry.key = key;
@@ -47,6 +43,12 @@ void storeTT(const uint64_t& key, int depth, int score, int flag, int eval, int 
 	entry.age = 0;
 }
 
+int probePTT(const uint64_t& key, int depth) {
+	auto& entry = ptt[key & TTMaxEntry];
+	return (entry.key == key && entry.depth == depth) ? entry.nodes : NO_NODES;
+}
+
+
 void storePTT(const uint64_t& key, int depth, int nodes) {
 	auto& entry = ptt[key & TTMaxEntry];
 	if (entry.nodes == NO_NODES) {
@@ -54,6 +56,18 @@ void storePTT(const uint64_t& key, int depth, int nodes) {
 		entry.depth = depth;
 		entry.nodes = nodes;
 	}
+}
+
+int probeQHash(const uint64_t& key) {
+	auto& entry = qhash[key & qHashMaxEntry];
+	return (entry.key == key) ? entry.eval : NO_VALUE;
+}
+
+int storeQHash(const uint64_t& key, int eval) {
+	auto& entry = qhash[key & qHashMaxEntry];
+	// Always replace
+	entry.key = key;
+	entry.eval = eval;
 }
 
 void ageTT() {

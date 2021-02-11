@@ -28,15 +28,28 @@ struct PTTInfo {
 	uint64_t key = 0;
 };
 
+struct qHashInfo {
+	qHashInfo() {};
+	int eval = NO_VALUE;
+	uint64_t key = 0;
+};
+
 static constexpr int TTMaxEntry = 0xfffff;
 static constexpr int TTAgeLimit = 6;
-
 extern TTInfo tt[TTMaxEntry];
 
-int probeTT(const uint64_t& b, int depth, int alpha, int beta, int ply, SearchInfo& si, int& ttEval);
-int probePTT(const uint64_t& b, int depth);
-void storeTT(const uint64_t& b, int depth, int score, int flag, int eval, int ply, const Move& m);
-void storePTT(const uint64_t& b, int depth, int nodes);
+static constexpr int qHashMaxEntry = 0xfffff;
+extern qHashInfo qhash[qHashMaxEntry];
+
+int probeTT(const uint64_t& key, int depth, int alpha, int beta, int ply, SearchInfo& si, int& ttEval);
+void storeTT(const uint64_t& key, int depth, int score, int flag, int eval, int ply, const Move& m);
+
+int probePTT(const uint64_t& key, int depth);
+void storePTT(const uint64_t& key, int depth, int nodes);
+
+int probeQHash(const uint64_t& key);
+int storeQHash(const uint64_t& key, int eval);
+
 void ageTT();
 
 #endif

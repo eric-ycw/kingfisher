@@ -28,9 +28,10 @@ void initSearch(SearchInfo& si) {
 	si.reset();
 }
 
-bool timeOver(const SearchInfo& si, const bool ignoreDepth) {
-	bool timeFlag = (ignoreDepth || (!ignoreDepth && si.depth > 1));
-	return (timeFlag && ((si.nodes + si.qnodes) % 2 == 0) &&
+bool timeOver(const SearchInfo& si, const bool ignoreDepth, const bool ignoreNodeCount) {
+	bool depthFlag = (ignoreDepth || (!ignoreDepth && si.depth > 1));
+	bool nodeFlag = (ignoreDepth || (!ignoreNodeCount && (((si.nodes + si.qnodes) % 2) == 0)));
+	return (depthFlag && nodeFlag &&
 		   ((double)(clock() - si.start) / (CLOCKS_PER_SEC / 1000) >= si.limit));
 }
 
@@ -148,7 +149,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 	si.nodes++;
 
-	if (timeOver(si, false)) return alpha;
+	if (timeOver(si, false, false)) return alpha;
 
 	int ttEval = NO_VALUE;
 
@@ -324,12 +325,20 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 
 	si.qnodes++;
 
-	if (timeOver(si, true)) return alpha;
+	if (timeOver(si, true, false)) return alpha;
 
 	// Check for draw
 	if (drawnByRepetition(b)) return 0;
 
-	int eval = evaluate(b, b.turn);
+	// Probe eval hash;
+	int qHashEval = probeQHash(b.key);
+	bool hit = (qHashEval != NO_VALUE);
+
+	int eval = (hit) ? qHashEval : evaluate(b, b.turn);
+
+	if (!hit) storeQHash(b.key, eval);
+	if (hit) si.qHashHit++;
+
 	if (eval >= beta) return beta;
 	if (eval > alpha) alpha = eval;
 
@@ -364,7 +373,7 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 		undoMove(b, m, u);
 
 		if (score >= beta) {
-			// Update near-root move ordering info
+			// Update qsearch move ordering info
 			if ((i + 1) <= FAIL_HIGH_MOVES) si.failHigh[2][i]++;
 
 			return beta;
@@ -478,7 +487,7 @@ void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 		si.depth = i;
 
 		int score = search(b, i, 0, alpha, beta, si, si.pv);
-		if (timeOver(si, true)) break;
+		if (timeOver(si, true, true)) break;
 		
 		if ((score <= alpha) || (score >= beta)) {
 			alpha = -MATE_SCORE;

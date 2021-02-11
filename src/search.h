@@ -24,6 +24,7 @@ struct SearchInfo {
 	int failHigh[3][FAIL_HIGH_MOVES];
 	int hashCount = 0;
 	int hashCut = 0;
+	int qHashHit = 0;
 
 	void operator=(const SearchInfo& si) {
 		depth = si.depth;
@@ -47,6 +48,7 @@ struct SearchInfo {
 		}
 		hashCount = si.hashCount;
 		hashCut = si.hashCut;
+		qHashHit = si.qHashHit;
 	}
 
 	void initTime(int limitParam) {
@@ -71,6 +73,7 @@ struct SearchInfo {
 		}
 		hashCount = 0;
 		hashCut = 0;
+		qHashHit = 0;
 	}
 
 	void print() {
@@ -94,7 +97,14 @@ struct SearchInfo {
 	void printSearchDebug() {
 		std::cout << "\n+---+---+ ### NODES ### +---+---+\n";
 
+		float elapsed = (double)(clock() - start) / (CLOCKS_PER_SEC);
+
 		std::cout << "\nnodes: " << nodes << " | qnodes: " << qnodes << "\n";
+		std::cout << "\nnps: " << nodes / elapsed << " | qnps: " << qnodes / elapsed << "\n";
+
+		std::cout << "qhash eval hit: " << roundf((float)qHashHit / qnodes * 100 * 100) / 100 << "%\n";
+
+		std::cout << "\n+---+---+ ### MOVE ORDERING ### +---+---+\n";
 
 		int nearLeafTotal = 0;
 		int nearRootTotal = 0;
@@ -103,7 +113,6 @@ struct SearchInfo {
 		for (auto& i : failHigh[1]) nearRootTotal += i;
 		for (auto& i : failHigh[2]) qTotal += i;
 
-		std::cout << "\n+---+---+ ### MOVE ORDERING ### +---+---+\n";
 		std::cout << "\nfail-high percentages by move order\n";
 		std::cout << "near-leaf: ";
 		for (auto& i : failHigh[0]) {
@@ -168,7 +177,7 @@ static constexpr int SEEValues[5] = {
 
 void initSearch(SearchInfo& si);
 
-bool timeOver(const SearchInfo& si, const bool ignoreDepth);
+bool timeOver(const SearchInfo& si, const bool ignoreDepth, const bool ignoreNodeCount);
 
 void reduceHistory();
 
