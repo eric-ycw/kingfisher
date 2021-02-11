@@ -78,12 +78,12 @@ static constexpr int psqtFileTable[8] = { 0, 1, 2, 3, 3, 2, 1, 0 };
 
 static constexpr int supportedPawnBonus = 12;
 static constexpr int phalanxPawnBonus = 8;
-static constexpr int doubledPawnPenalty = 16;
+static constexpr int doubledPawnPenalty = 32;
 
 static constexpr int passedBonus[7][2] = {
-	{0, 0}, {0, 10}, {5, 20}, {15, 30}, {45, 65}, {125, 175}, {250, 275}
+	{0, 0}, {0, 20}, {5, 40}, {15, 80}, {60, 120}, {140, 240}, {320, 480}
 };
-static constexpr double passedBlockReduction = 2;
+static constexpr double passedBlockReduction = 1.75;
 
 static constexpr int knightMobility[28]
 {
@@ -108,7 +108,7 @@ static constexpr int queenMobility[28]
 static constexpr int kingAttackBonus = 12;
 static constexpr int kingAttackerBonus[5] = { 0, 40, 35, 30, 10 };
 
-static constexpr int bishopPairBonus = 25;
+static constexpr int bishopPairBonus = 35;
 
 static constexpr int rookFileBonus[3] = { 0, 25, 40 };
 
