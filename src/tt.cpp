@@ -74,7 +74,7 @@ void storeTT(const uint64_t& key, int depth, int score, int flag, int eval, int 
 	// Buckets are full, we replace a random one
 	// FIXME: Figure out a better replacement strategy
 	if (!stored) {
-		auto& entry = tt[index + key & 4];
+		auto& entry = tt[index + key & 3];
 		entry.key = (key >> 32);
 		entry.depth = depth;
 		entry.score = score;
