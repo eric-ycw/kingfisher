@@ -90,7 +90,7 @@ struct SearchInfo {
 			std::cout << "cp " << score;
 		}
 		else {
-			std::cout << "mate " << (MATE_SCORE - abs(score)) / 2 + (score > 0);
+			std::cout << "mate " << ((MATE_SCORE - abs(score)) / 2 + (score > 0)) * ((score > 0) ? 1 : -1);
 		}
 		std::cout << " depth " << depth << " seldepth " << seldepth << " nodes " << nodes + qnodes;
 		std::cout << " time " << (double)(clock() - start) / (CLOCKS_PER_SEC / 1000);
