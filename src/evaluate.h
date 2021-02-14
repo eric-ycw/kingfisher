@@ -7,7 +7,7 @@ static inline float taperedScore(int mg, int eg, float phase) {
 	return mg * phase + eg * (1 - phase);
 }
 
-constexpr float materialSum = (float)(100 * 8 + 400 * 2 + 420 * 2 + 650 * 2 + 1250) * 2;
+constexpr float materialSum = (float)(400 * 2 + 420 * 2 + 650 * 2 + 1350) * 2;
 
 constexpr int pieceValues[5][2] = {
 	{100, 120}, {400, 380}, {420, 400}, {650, 600}, {1350, 1270}
@@ -76,9 +76,9 @@ static constexpr int kingPSQT[32][2] = {
 
 static constexpr int psqtFileTable[8] = { 0, 1, 2, 3, 3, 2, 1, 0 };
 
-static constexpr int supportedPawnBonus = 12;
-static constexpr int phalanxPawnBonus = 8;
-static constexpr int doubledPawnPenalty = 32;
+static constexpr int supportedPawnBonus = 20;
+static constexpr int phalanxPawnBonus = 20;
+static constexpr int doubledPawnPenalty = 48;
 
 static constexpr int passedBonus[7][2] = {
 	{0, 0}, {0, 20}, {5, 40}, {15, 60}, {50, 100}, {120, 180}, {250, 360}
@@ -106,7 +106,7 @@ static constexpr int queenMobility[28]
 };
 
 static constexpr int kingAttackBonus = 12;
-static constexpr int kingAttackerBonus[5] = { 0, 40, 35, 30, 10 };
+static constexpr int kingAttackerBonus[5] = { 20, 40, 35, 30, 10 };
 
 static constexpr int bishopPairBonus = 35;
 
@@ -121,11 +121,11 @@ int psqtScore(int piece, int sqr, float phase);
 
 int evaluate(const Board& b, int color);
 
-int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, int color, float phase);
-int evaluateKnights(const Board& b, uint64_t pieces, const uint64_t& safeSquares, const uint64_t& enemyKingRing);
-int evaluateBishops(const Board& b, uint64_t pieces, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color);
-int evaluateRooks(const Board& b, uint64_t pieces, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color);
-int evaluateQueens(const Board& b, uint64_t pieces, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color);
+int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, const uint64_t& enemyKingRing, int color, float phase);
+int evaluateKnights(const Board& b, uint64_t knights, const uint64_t& safeSquares, const uint64_t& enemyKingRing);
+int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color);
+int evaluateRooks(const Board& b, uint64_t rooks, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color);
+int evaluateQueens(const Board& b, uint64_t queens, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color);
 
 int passed(const Board& b, int sqr, const uint64_t& enemyPawns, int color);
 

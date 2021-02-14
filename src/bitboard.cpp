@@ -61,5 +61,5 @@ void printBitboard(const uint64_t& b) {
 		}
 		std::cout << l << "\n";
 	}
-	std::cout << "\n" << "Population count: " << countBits(b) << "\n";
+	std::cout << "\n" << "Population count: " << countBits(b) << "\n\n";
 }

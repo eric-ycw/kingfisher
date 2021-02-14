@@ -2,6 +2,7 @@
 #include "bitboard.h"
 #include "board.h"
 #include "evaluate.h"
+#include "masks.h"
 #include "tt.h"
 #include "types.h"
 
@@ -43,19 +44,19 @@ int evaluate(const Board& b, int color) {
 	int blackKingSqr = lsb(b.pieces[KING] & b.colors[BLACK]);
 	eval += psqtScore(KING, psqtSquare(whiteKingSqr, WHITE), phase) - psqtScore(KING, psqtSquare(blackKingSqr, BLACK), phase);
 
+	// King attack info
+	uint64_t whiteKingRing = genKingRing(whiteKingSqr);
+	uint64_t blackKingRing = genKingRing(blackKingSqr);
+	
 	// Evaluate pawns
 	uint64_t whitePawns = b.pieces[PAWN] & b.colors[WHITE];
 	uint64_t blackPawns = b.pieces[PAWN] & b.colors[BLACK];
-	eval += evaluatePawns(b, whitePawns, blackPawns, WHITE, phase);
-	eval -= evaluatePawns(b, blackPawns, whitePawns, BLACK, phase);
+	eval += evaluatePawns(b, whitePawns, blackPawns, blackKingRing, WHITE, phase);
+	eval -= evaluatePawns(b, blackPawns, whitePawns, whiteKingRing, BLACK, phase);
 
 	// Mobility info
 	uint64_t whiteSafeSquares = ~(((blackPawns >> 7) & ~fileAMask) | ((blackPawns >> 9) & ~fileHMask)) & b.colors[NO_COLOR];
 	uint64_t blackSafeSquares = ~(((whitePawns << 7) & ~fileHMask) | ((whitePawns << 9) & ~fileAMask)) & b.colors[NO_COLOR];
-
-	// King attack info
-	uint64_t whiteKingRing = genKingRing(whiteKingSqr);
-	uint64_t blackKingRing = genKingRing(blackKingSqr);
 
 	// Evaluate knights, bishops, rooks and queens
 	eval += evaluateKnights(b, b.pieces[KNIGHT] & b.colors[WHITE], whiteSafeSquares, blackKingRing);
@@ -71,7 +72,7 @@ int evaluate(const Board& b, int color) {
 	return (color == WHITE) ? eval : -eval;
 }
 
-int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, int color, float phase) {
+int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, const uint64_t& enemyKingRing, int color, float phase) {
 	// Probe pawn hash table
 	int eval = 0;
 	int hashEval = probePawnHash(pawns, color);
@@ -98,19 +99,25 @@ int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, in
 
 	while (pawns) {
 		int sqr = popBit(pawns);
+
 		// Passed pawn
 		int passedRank = passed(b, sqr, enemyPawns, color);
 		int baseScore = taperedScore(passedBonus[passedRank][MG], passedBonus[passedRank][EG], phase);
 		eval += (b.squares[sqr + (color == WHITE) * 8] == EMPTY) ? baseScore : baseScore / passedBlockReduction;
+
+		// King attacks
+		// Exponentially decreases with phase
+		eval += countBits(pawnAttacks[sqr][color] & enemyKingRing) * kingAttackerBonus[PAWN] * pow(phase, 2);
+
 	}
 
 	return eval;
 }
 
-int evaluateKnights(const Board& b, uint64_t pieces, const uint64_t& safeSquares, const uint64_t& enemyKingRing) {
+int evaluateKnights(const Board& b, uint64_t knights, const uint64_t& safeSquares, const uint64_t& enemyKingRing) {
 	int eval = 0;
-	while (pieces) {
-		uint64_t attacks = knightAttacks[popBit(pieces)];
+	while (knights) {
+		uint64_t attacks = knightAttacks[popBit(knights)];
 		// Mobility
 		eval += knightMobility[countBits(attacks & safeSquares)];
 		// King attacks
@@ -121,12 +128,12 @@ int evaluateKnights(const Board& b, uint64_t pieces, const uint64_t& safeSquares
 	return eval;
 }
 
-int evaluateBishops(const Board& b, uint64_t pieces, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color) {
+int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color) {
 	int eval = 0;
 	int count = 0;
 	const uint64_t valid = ~b.colors[b.turn];
-	while (pieces) {
-		uint64_t attacks = getBishopAttacks(b, valid, color, popBit(pieces));
+	while (bishops) {
+		uint64_t attacks = getBishopAttacks(b, valid, color, popBit(bishops));
 		// Mobility
 		eval += bishopMobility[countBits(attacks & safeSquares)];
 		// King attacks
@@ -140,11 +147,11 @@ int evaluateBishops(const Board& b, uint64_t pieces, const uint64_t& safeSquares
 	return eval;
 }
 
-int evaluateRooks(const Board& b, uint64_t pieces, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color) {
+int evaluateRooks(const Board& b, uint64_t rooks, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color) {
 	int eval = 0;
 	const uint64_t valid = ~b.colors[b.turn];
-	while (pieces) {
-		int sqr = popBit(pieces);
+	while (rooks) {
+		int sqr = popBit(rooks);
 		uint64_t attacks = getRookAttacks(b, valid, color, sqr);
 		// Mobility
 		eval += rookMobility[countBits(attacks & safeSquares)];
@@ -158,11 +165,11 @@ int evaluateRooks(const Board& b, uint64_t pieces, const uint64_t& safeSquares, 
 	return eval;
 }
 
-int evaluateQueens(const Board& b, uint64_t pieces, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color) {
+int evaluateQueens(const Board& b, uint64_t queens, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color) {
 	int eval = 0;
 	const uint64_t valid = ~b.colors[b.turn];
-	while (pieces) {
-		uint64_t attacks = getQueenAttacks(b, valid, color, popBit(pieces));
+	while (queens) {
+		uint64_t attacks = getQueenAttacks(b, valid, color, popBit(queens));
 		// Mobility
 		eval += queenMobility[countBits(attacks & safeSquares)];
 		// King attacks
@@ -175,20 +182,7 @@ int evaluateQueens(const Board& b, uint64_t pieces, const uint64_t& safeSquares,
 
 int passed(const Board& b, int sqr, const uint64_t& enemyPawns, int color) {
 	int rank = sqr / 8;
-	int file = sqr % 8;
-	uint64_t rankMask = 0ull;
-	if (color == WHITE) {
-		for (int i = 6; i > rank; --i) {
-			rankMask |= rankMasks[i];
-		}
-	}
-	else {
-		for (int i = 1; i < rank; ++i) {
-			rankMask |= rankMasks[i];
-		}
-	}
-	uint64_t fileMask = fileMasks[file] | fileMasks[std::max(0, file - 1)] | fileMasks[std::min(7, file + 1)];
-	return (!countBits(rankMask & fileMask & enemyPawns)) ? ((color == WHITE) ? rank : 7 - rank) : 0;
+	return (!countBits(passedPawnMasks[sqr][color] & enemyPawns)) ? ((color == WHITE) ? rank : 7 - rank) : 0;
 }
 
 int openFile(const Board& b, int file) {
@@ -206,7 +200,8 @@ uint64_t genKingRing(int sqr) {
 
 float getPhase(const Board& b) {
 	int material = 0;
-	for (int i = PAWN; i <= QUEEN; ++i) {
+	// We do not consider pawns in calculating game phase
+	for (int i = KNIGHT; i <= QUEEN; ++i) {
 		material += pieceValues[i][MG] * countBits(b.pieces[i]);
 	}
 	return std::min((float)1.0, material / materialSum);

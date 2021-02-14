@@ -28,18 +28,6 @@ static constexpr uint64_t fileMasks[8] = {
 	fileAMask, fileBMask, fileCMask, fileDMask, fileEMask, fileFMask, fileGMask, fileHMask
 };
 
-static constexpr int lsbTable[SQUARE_NUM] =
-{
-   63, 30,  3, 32, 59, 14, 11, 33,
-   60, 24, 50,  9, 55, 19, 21, 34,
-   61, 29,  2, 53, 51, 23, 41, 18,
-   56, 28,  1, 43, 46, 27,  0, 35,
-   62, 31, 58,  4,  5, 49, 54,  6,
-   15, 52, 12, 40,  7, 42, 45, 16,
-   25, 57, 48, 13, 10, 39,  8, 44,
-   20, 47, 38, 22, 17, 37, 36, 26
-};
-
 static constexpr int msbTable[SQUARE_NUM] = {
 	0, 47,  1, 56, 48, 27,  2, 60,
    57, 49, 41, 37, 28, 16,  3, 61,

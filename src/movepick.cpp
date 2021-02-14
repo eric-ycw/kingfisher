@@ -51,11 +51,6 @@ Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<
 			}
 
 			Move m = moves[movesTried - 1];
-			if (!moveIsPsuedoLegal(b, m)) {
-				printBoard(b);
-				std::cout << toNotation(m) << "\n";
-				assert(false);
-			}
 
 			// We skip the hash move
 			if (m == hashMove) {

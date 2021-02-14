@@ -2,6 +2,7 @@
 #include "bitboard.h"
 #include "board.h"
 #include "evaluate.h"
+#include "masks.h"
 #include "move.h"
 #include "movegen.h"
 #include "search.h"
@@ -12,6 +13,7 @@ int main()
 {
 	Board b;
 	SearchInfo si;
+	initMasks();
 	initKeys();
 	initAttacks();
 
@@ -46,6 +48,9 @@ int main()
 			size_t pos = input.find("perft");
 			int depth = std::stoi(input.substr(pos + 6));
 			perft(b, depth, 0);
+		}
+		else if (!input.compare(0, 5, "print")) {
+			printBoard(b);
 		}
 		else if (!input.compare(0, 4, "quit")) {
 			break;
