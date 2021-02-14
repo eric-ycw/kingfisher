@@ -46,7 +46,7 @@ void reduceHistory() {
 	}
 }
 
-int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& hashMove, bool& ageHistory) {
+int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& hashMove, bool& ageHistory) {
 	/*
 
 	1. Hash move
@@ -88,7 +88,7 @@ int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& h
 }
 
 std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove, bool& ageHistory) {
-	float phase = getPhase(b);
+	int phase = getPhase(b);
 	int size = moves.size();
 	std::vector<Move> scoredMoves(size);
 

@@ -3,11 +3,11 @@
 
 #include "types.h"
 
-static inline float taperedScore(int mg, int eg, float phase) {
-	return mg * phase + eg * (1 - phase);
+static inline int taperedScore(int mg, int eg, int phase) {
+	return (mg * phase + eg * (256 - phase)) / 256;
 }
 
-constexpr float materialSum = (float)(400 * 2 + 420 * 2 + 650 * 2 + 1350) * 2;
+constexpr int materialSum = (400 * 2 + 420 * 2 + 650 * 2 + 1350) * 2;
 
 constexpr int pieceValues[5][2] = {
 	{100, 120}, {400, 380}, {420, 400}, {650, 600}, {1350, 1270}
@@ -117,11 +117,11 @@ static inline int psqtSquare(int square, int color) {
 	return ((color == WHITE) ? 7 - square / 8 : square / 8) * 4 + psqtFileTable[square % 8];
 }
 
-int psqtScore(int piece, int sqr, float phase);
+int psqtScore(int piece, int sqr, int phase);
 
 int evaluate(const Board& b, int color);
 
-int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, const uint64_t& enemyKingRing, int color, float phase);
+int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, const uint64_t& enemyKingRing, int color, int phase);
 int evaluateKnights(const Board& b, uint64_t knights, const uint64_t& safeSquares, const uint64_t& enemyKingRing);
 int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color);
 int evaluateRooks(const Board& b, uint64_t rooks, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color);
@@ -133,6 +133,6 @@ int openFile(const Board& b, int file);
 
 uint64_t genKingRing(int sqr);
 
-float getPhase(const Board& b);
+int getPhase(const Board& b);
 
 #endif

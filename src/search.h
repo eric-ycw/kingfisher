@@ -153,7 +153,7 @@ static constexpr int aspirationWindow = 35;
 
 static constexpr int nullMoveBaseR = 2;
 static constexpr int nullMoveMinDepth = 3;
-static constexpr float nullMovePhaseLimit = (float)0.2;
+static constexpr int nullMovePhaseLimit = 256 / 4;
 
 static constexpr int futilityMaxDepth = 3;
 static constexpr int futilityMargin = 75;
@@ -200,7 +200,7 @@ void timeOver(SearchInfo& si, const bool ignoreDepth, const bool ignoreNodeCount
 
 void reduceHistory();
 
-int scoreMove(const Board& b, const Move& m, int ply, float phase, const Move& hashMove, bool& ageHistory);
+int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& hashMove, bool& ageHistory);
 std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove, bool& ageHistory);
 
 int scoreNoisyMove(const Board& b, const Move& m);

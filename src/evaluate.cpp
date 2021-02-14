@@ -6,7 +6,7 @@
 #include "tt.h"
 #include "types.h"
 
-int psqtScore(int piece, int sqr, float phase) {
+int psqtScore(int piece, int sqr, int phase) {
 	switch (piece) {
 	case PAWN:
 		return pawnPSQT[sqr];
@@ -24,7 +24,7 @@ int psqtScore(int piece, int sqr, float phase) {
 }
 
 int evaluate(const Board& b, int color) {
-	float phase = getPhase(b);
+	int phase = getPhase(b);
 	int eval = 0;
 
 	// Piece values
@@ -72,7 +72,7 @@ int evaluate(const Board& b, int color) {
 	return (color == WHITE) ? eval : -eval;
 }
 
-int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, const uint64_t& enemyKingRing, int color, float phase) {
+int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, const uint64_t& enemyKingRing, int color, int phase) {
 	// Probe pawn hash table
 	int eval = 0;
 	int hashEval = probePawnHash(pawns, color);
@@ -106,8 +106,7 @@ int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, co
 		eval += (b.squares[sqr + (color == WHITE) * 8] == EMPTY) ? baseScore : baseScore / passedBlockReduction;
 
 		// King attacks
-		// Exponentially decreases with phase
-		eval += countBits(pawnAttacks[sqr][color] & enemyKingRing) * kingAttackerBonus[PAWN] * pow(phase, 2);
+		eval += taperedScore(countBits(pawnAttacks[sqr][color] & enemyKingRing) * kingAttackerBonus[PAWN], 0, phase / 2);
 
 	}
 
@@ -198,11 +197,12 @@ uint64_t genKingRing(int sqr) {
 	return kingSquare | diagonals | cardinals;
 }
 
-float getPhase(const Board& b) {
+int getPhase(const Board& b) {
+	// Game phase is normalized between 256 (middlegame) and 0 (endgame)
 	int material = 0;
 	// We do not consider pawns in calculating game phase
 	for (int i = KNIGHT; i <= QUEEN; ++i) {
 		material += pieceValues[i][MG] * countBits(b.pieces[i]);
 	}
-	return std::min((float)1.0, material / materialSum);
+	return std::min((material * 256 + (materialSum / 2)) / materialSum, 256);
 }

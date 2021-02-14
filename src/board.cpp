@@ -219,6 +219,7 @@ void printBoard(const Board& b) {
 	std::cout << "Fifty move counter: " << b.fiftyMove << "\n";
 	std::cout << "Piece-square table score: " << b.psqt << "\n";
 	std::cout << "Evaluation: " << evaluate(b, WHITE) << "\n";
+	std::cout << "Phase: " << getPhase(b) << "\n";
 }
 
 uint64_t perft(Board& b, int depth, int ply) {
