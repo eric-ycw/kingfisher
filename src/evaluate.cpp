@@ -45,8 +45,8 @@ int evaluate(const Board& b, int color) {
 	eval += psqtScore(KING, psqtSquare(whiteKingSqr, WHITE), phase) - psqtScore(KING, psqtSquare(blackKingSqr, BLACK), phase);
 
 	// King attack info
-	uint64_t whiteKingRing = kingInnerRing[whiteKingSqr];
-	uint64_t blackKingRing = kingInnerRing[blackKingSqr];
+	uint64_t whiteKingRing = kingRing[whiteKingSqr];
+	uint64_t blackKingRing = kingRing[blackKingSqr];
 	
 	// Evaluate pawns
 	uint64_t whitePawns = b.pieces[PAWN] & b.colors[WHITE];
@@ -58,16 +58,23 @@ int evaluate(const Board& b, int color) {
 	uint64_t whiteSafeSquares = ~(((blackPawns >> 7) & ~fileAMask) | ((blackPawns >> 9) & ~fileHMask)) & b.colors[NO_COLOR];
 	uint64_t blackSafeSquares = ~(((whitePawns << 7) & ~fileHMask) | ((whitePawns << 9) & ~fileAMask)) & b.colors[NO_COLOR];
 
-	// Evaluate knights, bishops, rooks and queens
-	eval += evaluateKnights(b, b.pieces[KNIGHT] & b.colors[WHITE], whiteSafeSquares, blackKingRing);
-	eval += evaluateBishops(b, b.pieces[BISHOP] & b.colors[WHITE], whiteSafeSquares, blackKingRing, WHITE);
-	eval += evaluateRooks(b, b.pieces[ROOK] & b.colors[WHITE], whiteSafeSquares, blackKingRing, WHITE);
-	eval += evaluateQueens(b, b.pieces[QUEEN] & b.colors[WHITE], whiteSafeSquares, blackKingRing, WHITE);
+	// Attack info
+	uint64_t whiteAttackSquares = ~blackSafeSquares;
+	uint64_t blackAttackSquares = ~whiteSafeSquares;
 
-	eval -= evaluateKnights(b, b.pieces[KNIGHT] & b.colors[BLACK], blackSafeSquares, whiteKingRing);
-	eval -= evaluateBishops(b, b.pieces[BISHOP] & b.colors[BLACK], blackSafeSquares, whiteKingRing, BLACK);
-	eval -= evaluateRooks(b, b.pieces[ROOK] & b.colors[BLACK], blackSafeSquares, whiteKingRing, BLACK);
-	eval -= evaluateQueens(b, b.pieces[QUEEN] & b.colors[BLACK], blackSafeSquares, whiteKingRing, BLACK);
+	// Evaluate knights, bishops, rooks and queens
+	eval += evaluateKnights(b, b.pieces[KNIGHT] & b.colors[WHITE], whiteSafeSquares, blackKingRing, whiteAttackSquares);
+	eval += evaluateBishops(b, b.pieces[BISHOP] & b.colors[WHITE], whiteSafeSquares, blackKingRing, whiteAttackSquares, WHITE);
+	eval += evaluateRooks(b, b.pieces[ROOK] & b.colors[WHITE], whiteSafeSquares, blackKingRing, whiteAttackSquares, WHITE);
+	eval += evaluateQueens(b, b.pieces[QUEEN] & b.colors[WHITE], whiteSafeSquares, blackKingRing, whiteAttackSquares, WHITE);
+
+	eval -= evaluateKnights(b, b.pieces[KNIGHT] & b.colors[BLACK], blackSafeSquares, whiteKingRing, blackAttackSquares);
+	eval -= evaluateBishops(b, b.pieces[BISHOP] & b.colors[BLACK], blackSafeSquares, whiteKingRing, blackAttackSquares, BLACK);
+	eval -= evaluateRooks(b, b.pieces[ROOK] & b.colors[BLACK], blackSafeSquares, whiteKingRing, blackAttackSquares, BLACK);
+	eval -= evaluateQueens(b, b.pieces[QUEEN] & b.colors[BLACK], blackSafeSquares, whiteKingRing, blackAttackSquares, BLACK);
+	
+	eval += evaluateKing(b, whiteKingSqr, whiteKingRing, whiteAttackSquares, blackAttackSquares, WHITE, phase);
+	eval -= evaluateKing(b, blackKingSqr, blackKingRing, blackAttackSquares, whiteAttackSquares, BLACK, phase);
 
 	return (color == WHITE) ? eval : -eval;
 }
@@ -115,12 +122,14 @@ int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, co
 	return eval;
 }
 
-int evaluateKnights(const Board& b, uint64_t knights, const uint64_t& safeSquares, const uint64_t& enemyKingRing) {
+int evaluateKnights(const Board& b, uint64_t knights, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares) {
 	int eval = 0;
 	while (knights) {
 		uint64_t attacks = knightAttacks[popBit(knights)];
 		// Mobility
 		eval += knightMobility[countBits(attacks & safeSquares)];
+		// Add to attack bitmap
+		attackSquares |= attacks;
 		// King attacks
 		int kingAttacks = countBits(attacks & enemyKingRing);
 		eval += kingAttacks * kingAttackBonus;
@@ -129,7 +138,7 @@ int evaluateKnights(const Board& b, uint64_t knights, const uint64_t& safeSquare
 	return eval;
 }
 
-int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color) {
+int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color) {
 	int eval = 0;
 	int count = 0;
 	const uint64_t valid = ~b.colors[b.turn];
@@ -137,6 +146,8 @@ int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquare
 		uint64_t attacks = getBishopAttacks(b, valid, color, popBit(bishops));
 		// Mobility
 		eval += bishopMobility[countBits(attacks & safeSquares)];
+		// Add to attack bitmap
+		attackSquares |= attacks;
 		// King attacks
 		int kingAttacks = countBits(attacks & enemyKingRing);
 		eval += kingAttacks * kingAttackBonus;
@@ -148,7 +159,7 @@ int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquare
 	return eval;
 }
 
-int evaluateRooks(const Board& b, uint64_t rooks, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color) {
+int evaluateRooks(const Board& b, uint64_t rooks, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color) {
 	int eval = 0;
 	const uint64_t valid = ~b.colors[b.turn];
 	while (rooks) {
@@ -156,6 +167,8 @@ int evaluateRooks(const Board& b, uint64_t rooks, const uint64_t& safeSquares, c
 		uint64_t attacks = getRookAttacks(b, valid, color, sqr);
 		// Mobility
 		eval += rookMobility[countBits(attacks & safeSquares)];
+		// Add to attack bitmap
+		attackSquares |= attacks;
 		// King attacks
 		int kingAttacks = countBits(attacks & enemyKingRing);
 		eval += kingAttacks * kingAttackBonus;
@@ -166,18 +179,27 @@ int evaluateRooks(const Board& b, uint64_t rooks, const uint64_t& safeSquares, c
 	return eval;
 }
 
-int evaluateQueens(const Board& b, uint64_t queens, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color) {
+int evaluateQueens(const Board& b, uint64_t queens, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color) {
 	int eval = 0;
 	const uint64_t valid = ~b.colors[b.turn];
 	while (queens) {
 		uint64_t attacks = getQueenAttacks(b, valid, color, popBit(queens));
 		// Mobility
 		eval += queenMobility[countBits(attacks & safeSquares)];
+		// Add to attack bitmap
+		attackSquares |= attacks;
 		// King attacks
 		int kingAttacks = countBits(attacks & enemyKingRing);
 		eval += kingAttacks * kingAttackBonus;
 		eval += (kingAttacks > 0) * kingAttackerBonus[QUEEN];
 	}
+	return eval;
+}
+
+int evaluateKing(const Board& b, const int& king, const uint64_t& kingRing, const uint64_t& defendSquares, const uint64_t& attackSquares, int color, int phase) {
+	int eval = 0;
+	// We penalise weak squares near king (king ring squares that are attacked but not defended by our pieces or pawns)
+	eval -= countBits(attackSquares & ~defendSquares & kingRing) * weakSquarePenalty;
 	return eval;
 }
 
