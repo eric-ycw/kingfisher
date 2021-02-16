@@ -20,7 +20,7 @@ void initSearch(SearchInfo& si) {
 	for (int i = 0; i < 2; ++i) {
 		for (int j = 0; j < 6; ++j) {
 			for (int k = 0; k < SQUARE_NUM; k++) {
-				historyMoves[i][j][k] = 0;
+				historyMoves[i][j][k] = historyMax / 2;
 			}
 		}
 	}
@@ -53,7 +53,7 @@ int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& has
 	2. Good captures/promotions
 	3. Equal captures (0)
 	4. Killer moves
-	5. History moves (-5 to -10000)
+	5. History moves (-5 to -10005)
 	6. Bad captures
 
 	*/
@@ -183,7 +183,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	Move bestMove = NO_MOVE;
 
 	// Null move pruning
-	if (allowNull && depth >= nullMoveMinDepth && !isInCheck) {
+	if (allowNull && depth >= nullMoveMinDepth && !isInCheck && getPhase(b) != 0) {
 		auto u = makeNullMove(b);
 		int nullMoveR = nullMoveBaseR + depth / 6;
 		nullMoveR = std::min(nullMoveR, 4);
@@ -222,21 +222,24 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 		bool isKiller = (m == killers[0][ply] || m == killers[1][ply]);
 		bool isHash = (m == hashMove);
 
+		bool isPassedPawn = (b.turn == WHITE) ?
+							(b.squares[from] == W_PAWN && isPassed(b, from, WHITE)) :
+							(b.squares[from] == B_PAWN && isPassed(b, from, BLACK));
 		bool isDangerousPawn = (b.turn == WHITE) ? 
 							   (b.squares[from] == W_PAWN && checkBit(rank6Mask | rank7Mask | rank8Mask, to)) :
 							   (b.squares[from] == B_PAWN && checkBit(rank1Mask | rank2Mask | rank3Mask, to));
 		
 
-		bool canPrune = (!isNoisy && !isKiller && !isInCheck && !isDangerousPawn && !isHash);
+		bool canPrune = (!isNoisy && !isKiller && !isInCheck && !isPassedPawn && !isDangerousPawn && !isHash);
 
 
 		// Futility pruning
-		if (fPrune && canPrune && movesSearched > 0) {
+		if (canPrune && fPrune && movesSearched > 0) {
 			continue;
 		}
 
 		// Late move pruning
-		if (depth <= lateMovePruningMaxDepth && movesSearched >= lateMovePruningMove * depth && canPrune) {
+		if (canPrune && depth <= lateMovePruningMaxDepth && movesSearched >= lateMovePruningMove * depth) {
 			continue;
 		}
 
@@ -254,7 +257,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 		score = alpha + 1;
 
 		// Late move reduction
-		if (depth >= lateMoveMinDepth && !isNoisy && !isInCheck && !isCheck && !isDangerousPawn && !isHash) {
+		if (depth >= lateMoveMinDepth && !isNoisy && !isInCheck && !isCheck && !isPassedPawn && !isDangerousPawn && !isHash) {
 			int lmrIndex = (depth > 12);
 
 			int lateMoveR = lateMoveRTable[lmrIndex][std::min(movesSearched, 63)];
@@ -280,7 +283,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 			}
 
 			// Update history score
-			if (!isNoisy && depth <= historyMaxDepth) historyMoves[b.turn][pieceType(b.squares[m.getFrom()])][m.getTo()] += depth * depth;
+			if (!isNoisy && depth <= historyMaxDepth) historyMoves[b.turn][pieceType(b.squares[from])][to] += depth * depth;
 
 			// ### DEBUG ###
 			// Update near-leaf move ordering info
@@ -293,6 +296,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 			if (m == hashMove) si.hashCut++;
 
 			return score;
+
 		}
 
 		if (score > alpha) {
@@ -481,7 +485,7 @@ int greatestTacticalGain(const Board& b) {
 
 void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 	SearchInfo searchCache;
-	Move bestMove;
+	Move bestMove = NO_MOVE;
 	initSearch(si);
 	si.initTime(timeLimit);
 

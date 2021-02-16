@@ -45,8 +45,8 @@ int evaluate(const Board& b, int color) {
 	eval += psqtScore(KING, psqtSquare(whiteKingSqr, WHITE), phase) - psqtScore(KING, psqtSquare(blackKingSqr, BLACK), phase);
 
 	// King attack info
-	uint64_t whiteKingRing = genKingRing(whiteKingSqr);
-	uint64_t blackKingRing = genKingRing(blackKingSqr);
+	uint64_t whiteKingRing = kingInnerRing[whiteKingSqr];
+	uint64_t blackKingRing = kingInnerRing[blackKingSqr];
 	
 	// Evaluate pawns
 	uint64_t whitePawns = b.pieces[PAWN] & b.colors[WHITE];
@@ -80,25 +80,27 @@ int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, co
 		eval = hashEval;
 	} else {
 		// Supported pawns
-		int supported = (countBits((pawns & ((color == WHITE) ? (pawns >> 7) & ~fileAMask : (pawns << 7) & ~fileHMask)) |
+		eval += (countBits((pawns & ((color == WHITE) ? (pawns >> 7) & ~fileAMask : (pawns << 7) & ~fileHMask)) |
 						(pawns & ((color == WHITE) ? (pawns >> 9) & ~fileHMask : (pawns << 9) & ~fileAMask)))) *
 						supportedPawnBonus;
 
 		// Phalanx pawns
-		int phalanx = (countBits((pawns & (pawns >> 1) & ~fileHMask) | (pawns & (pawns << 1) & ~fileAMask))) * phalanxPawnBonus;
+		eval += (countBits((pawns & (pawns >> 1) & ~fileHMask) | (pawns & (pawns << 1) & ~fileAMask))) * phalanxPawnBonus;
 
 		// Doubled pawns
 		int doubled = 0;
 		for (int i = 0; i < 8; ++i) {
-			if (countBits(pawns & fileMasks[i]) > 1) doubled -= doubledPawnPenalty;
+			if (countBits(pawns & fileMasks[i]) > 1) eval -= doubledPawnPenalty;
 		}
 
-		eval = supported + phalanx - doubled;
 		storePawnHash(pawns, eval, color);
 	}
 
 	while (pawns) {
 		int sqr = popBit(pawns);
+
+		// Isolated pawns
+		eval -= ((neighborFileMasks[sqr % 8] & ~fileMasks[sqr % 8] & b.pieces[PAWN] & b.colors[color]) == 0) * isolatedPawnPenalty;
 
 		// Passed pawn
 		int passedRank = passed(b, sqr, enemyPawns, color);
@@ -184,17 +186,14 @@ int passed(const Board& b, int sqr, const uint64_t& enemyPawns, int color) {
 	return (!countBits(passedPawnMasks[sqr][color] & enemyPawns)) ? ((color == WHITE) ? rank : 7 - rank) : 0;
 }
 
+bool isPassed(const Board&b, int sqr, int color) {
+	return (passedPawnMasks[sqr][color] & b.pieces[PAWN] & b.colors[!color] == 0);
+}
+
 int openFile(const Board& b, int file) {
 	uint64_t whitePawnsOnFile = fileMasks[file] & b.pieces[PAWN] & b.colors[WHITE];
 	uint64_t blackPawnsOnFile = fileMasks[file] & b.pieces[PAWN] & b.colors[BLACK];
 	return !whitePawnsOnFile + !blackPawnsOnFile;
-}
-
-uint64_t genKingRing(int sqr) {
-	uint64_t kingSquare = (1ull << sqr);
-	uint64_t diagonals = ((kingSquare >> 7) & ~fileAMask) | ((kingSquare >> 9) & ~fileHMask) | ((kingSquare << 7) & ~fileHMask) | ((kingSquare << 9) & ~fileAMask);
-	uint64_t cardinals = ((kingSquare >> 1) & ~fileHMask) | ((kingSquare << 1) & ~fileAMask) | (kingSquare >> 8) | (kingSquare << 8);
-	return kingSquare | diagonals | cardinals;
 }
 
 int getPhase(const Board& b) {

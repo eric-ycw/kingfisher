@@ -12,11 +12,8 @@ struct Move {
 	// f: 6 bits, from square
 	// t: 6 bits, to square
 	// g: 4 bits, move flag
-	
-	Move() {
-		code = 0;
-		score = NO_SCORE;
-	}
+
+	Move() {}
 
 	Move(int fromParam, int toParam, uint8_t flagParam) {
 		code = (fromParam << 10) | (toParam << 4) | flagParam;

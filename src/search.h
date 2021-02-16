@@ -151,6 +151,13 @@ struct SearchInfo {
 static constexpr int aspirationMinDepth = 5;
 static constexpr int aspirationWindow = 35;
 
+static Move killers[2][MAX_PLY + 1];
+static constexpr int killerBonus[4] = { -1, -2, -3, -4 };
+
+static constexpr int historyMax = 10000;
+static constexpr int historyMaxDepth = 8;
+static int historyMoves[2][6][SQUARE_NUM];
+
 static constexpr int nullMoveBaseR = 2;
 static constexpr int nullMoveMinDepth = 3;
 static constexpr int nullMovePhaseLimit = 256 / 4;
@@ -160,6 +167,7 @@ static constexpr int futilityMargin = 75;
 static constexpr int deltaMargin = 125;
 
 static constexpr int lateMoveMinDepth = 3;
+static constexpr int historyReductionMinDepth = 10;
 
 static constexpr int lateMoveRTable[2][64] = {
 	{
@@ -181,13 +189,6 @@ static constexpr int lateMovePruningMaxDepth = 3;
 static constexpr int lateMovePruningMove = 7;
 
 static constexpr int hashMoveBonus = INT_MAX - 1;
-
-static Move killers[2][MAX_PLY + 1];
-static constexpr int killerBonus[4] = { -1, -2, -3, -4 };
-
-static constexpr int historyMax = 5000;
-static constexpr int historyMaxDepth = 8;
-static int historyMoves[2][6][SQUARE_NUM];
 
 static constexpr int SEEValues[5] = { 
 	// We use the same value for knight and bishop

@@ -6,6 +6,8 @@ uint64_t pawnAdvanceMasks[8][2];
 uint64_t neighborFileMasks[8];
 uint64_t passedPawnMasks[SQUARE_NUM][2];
 
+uint64_t kingInnerRing[SQUARE_NUM];
+
 void initPawnAdvanceMasks() {
     for (int i = 0; i < 8; ++i) {
         uint64_t wMask = 0ull;
@@ -37,8 +39,19 @@ void initPassedPawnMasks() {
     }
 }
 
+void initKingInnerRing() {
+    for (int sqr = 0; sqr < SQUARE_NUM; ++ sqr) {
+        uint64_t kingSquare = (1ull << sqr);
+	    uint64_t diagonals = ((kingSquare >> 7) & ~fileAMask) | ((kingSquare >> 9) & ~fileHMask) | ((kingSquare << 7) & ~fileHMask) | ((kingSquare << 9) & ~fileAMask);
+	    uint64_t cardinals = ((kingSquare >> 1) & ~fileHMask) | ((kingSquare << 1) & ~fileAMask) | (kingSquare >> 8) | (kingSquare << 8);
+	    kingInnerRing[sqr] = kingSquare | diagonals | cardinals;
+    }
+}
+
 void initMasks() {
     initPawnAdvanceMasks();
     initNeighborFileMasks();
     initPassedPawnMasks();
+
+    initKingInnerRing();
 }

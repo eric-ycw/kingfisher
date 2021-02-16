@@ -107,7 +107,7 @@ int probeQHash(const uint64_t& key) {
 	return (entry.key == key) ? entry.eval : NO_VALUE;
 }
 
-int storeQHash(const uint64_t& key, const int& eval) {
+void storeQHash(const uint64_t& key, const int& eval) {
 	auto& entry = qhash[key & qHashMaxEntry];
 	// Always replace
 	entry.key = key;
@@ -119,7 +119,7 @@ int probePawnHash(const uint64_t& key, const int& color) {
 	return (entry.key == key && entry.color == color) ? entry.staticEval : NO_VALUE;
 }
 
-int storePawnHash(const uint64_t& key, const int& staticEval, const int& color) {
+void storePawnHash(const uint64_t& key, const int& staticEval, const int& color) {
 	auto& entry = phash[key & pHashMaxEntry];
 	// Always replace
 	entry.key = key;

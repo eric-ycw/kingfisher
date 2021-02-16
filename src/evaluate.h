@@ -79,6 +79,7 @@ static constexpr int psqtFileTable[8] = { 0, 1, 2, 3, 3, 2, 1, 0 };
 static constexpr int supportedPawnBonus = 20;
 static constexpr int phalanxPawnBonus = 20;
 static constexpr int doubledPawnPenalty = 48;
+static constexpr int isolatedPawnPenalty = 14; // FIXME: Elo loss
 
 static constexpr int passedBonus[7][2] = {
 	{0, 0}, {0, 20}, {5, 40}, {15, 60}, {50, 100}, {120, 180}, {250, 360}
@@ -128,10 +129,9 @@ int evaluateRooks(const Board& b, uint64_t rooks, const uint64_t& safeSquares, c
 int evaluateQueens(const Board& b, uint64_t queens, const uint64_t& safeSquares, const uint64_t& enemyKingRing, int color);
 
 int passed(const Board& b, int sqr, const uint64_t& enemyPawns, int color);
+bool isPassed(const Board&b, int sqr, int color);
 
 int openFile(const Board& b, int file);
-
-uint64_t genKingRing(int sqr);
 
 int getPhase(const Board& b);
 

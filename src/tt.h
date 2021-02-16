@@ -59,10 +59,10 @@ int probePTT(const uint64_t& key, int depth);
 void storePTT(const uint64_t& key, int depth, int nodes);
 
 int probeQHash(const uint64_t& key);
-int storeQHash(const uint64_t& key, const int& eval);
+void storeQHash(const uint64_t& key, const int& eval);
 
 int probePawnHash(const uint64_t& key, const int& color);
-int storePawnHash(const uint64_t& key, const int& staticEval, const int& color);
+void storePawnHash(const uint64_t& key, const int& staticEval, const int& color);
 
 void ageTT();
 
