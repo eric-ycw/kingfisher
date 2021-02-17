@@ -511,7 +511,7 @@ void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 		}
 
 		si.print();
-		si.printSearchDebug();
+		if (si.debug) si.printSearchDebug();
 
 		research = false;
 

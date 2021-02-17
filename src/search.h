@@ -24,6 +24,7 @@ struct SearchInfo {
 	Move pv[MAX_PLY];
 
 	// ### DEBUG ###
+	bool debug = false;
 	int failHigh[3][FAIL_HIGH_MOVES];
 	int hashCount = 0;
 	int hashCut = 0;

@@ -13,9 +13,9 @@ int main()
 {
 	Board b;
 	SearchInfo si;
-	initMasks();
 	initKeys();
 	initAttacks();
+	initMasks();
 
 	std::cout << "id name Kingfisher\n";
 	std::cout << "id author Eric Yip\n";
@@ -51,6 +51,10 @@ int main()
 		}
 		else if (!input.compare(0, 5, "print")) {
 			printBoard(b);
+		}
+		else if (!input.compare(0, 5, "debug")) {
+			si.debug = !si.debug;
+			std::cout << "Debug mode " << ((si.debug) ? "on" : "off") << "\n";
 		}
 		else if (!input.compare(0, 4, "quit")) {
 			break;
