@@ -10,6 +10,7 @@ qHashInfo qhash[qHashMaxEntry];
 pHashInfo phash[pHashMaxEntry];
 
 int probeTT(const uint64_t& key, const int& depth, const int& alpha, const int& beta, const int& ply, SearchInfo& si, int& ttEval) {
+	
 	// We have 4 buckets per index
 	// Rightmost 32 bits of hash are used to get index
 	// Leftmost 32 bits of hash are used for verification

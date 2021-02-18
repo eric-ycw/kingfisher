@@ -1,6 +1,7 @@
 #include "attacks.h"
 #include "bitboard.h"
 #include "board.h"
+#include "masks.h"
 #include "move.h"
 #include "movegen.h"
 #include "types.h"
@@ -64,10 +65,12 @@ void genKnightMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 
 void genBishopMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 	uint64_t bishops = b.pieces[BISHOP] & b.colors[b.turn];
-	const uint64_t valid = ~b.colors[b.turn];
+	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (bishops) {
 		int sqr = popBit(bishops);
-		uint64_t bb = getBishopAttacks(b, valid, b.turn, sqr) & ~b.pieces[KING];
+		uint64_t bb = *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr]);
+		bb &= ~b.colors[b.turn] & ~b.pieces[KING];
+		// uint64_t bb = getBishopAttacks(occ, sqr) & ~b.pieces[KING];
 		if (noisyOnly) bb &= b.colors[!b.turn];
 		addPieceMoves(moves, bb, sqr);
 	}
@@ -75,10 +78,11 @@ void genBishopMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 
 void genRookMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 	uint64_t rooks = b.pieces[ROOK] & b.colors[b.turn];
-	const uint64_t valid = ~b.colors[b.turn];
+	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (rooks) {
 		int sqr = popBit(rooks);
-		uint64_t bb = getRookAttacks(b, valid, b.turn, sqr) & ~b.pieces[KING];
+		uint64_t bb = *((((occ & rookBlockerMasks[sqr]) * rookMagics[sqr]) >> rookMagicShifts[sqr]) + rookMagicIndexIncrements[sqr]);
+		bb &= ~b.colors[b.turn] & ~b.pieces[KING];
 		if (noisyOnly) bb &= b.colors[!b.turn];
 		addPieceMoves(moves, bb, sqr);
 	}
@@ -86,10 +90,12 @@ void genRookMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 
 void genQueenMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 	uint64_t queens = b.pieces[QUEEN] & b.colors[b.turn];
-	const uint64_t valid = ~b.colors[b.turn];
+	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (queens) {
 		int sqr = popBit(queens);
-		uint64_t bb = getQueenAttacks(b, valid, b.turn, sqr) & ~b.pieces[KING];
+		uint64_t bbb = *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr]);
+		uint64_t rbb = *((((occ & rookBlockerMasks[sqr]) * rookMagics[sqr]) >> rookMagicShifts[sqr]) + rookMagicIndexIncrements[sqr]);
+		uint64_t bb = (bbb | rbb) & (~b.colors[b.turn] & ~b.pieces[KING]);
 		if (noisyOnly) bb &= b.colors[!b.turn];
 		addPieceMoves(moves, bb, sqr);
 	}

@@ -6,7 +6,7 @@
 struct Board {
 	int squares[SQUARE_NUM];
 	uint64_t pieces[6];
-	uint64_t colors[3];  // white, black, empty
+	uint64_t colors[3];  // White, black, no color
 	uint64_t key;
 	uint64_t history[MAX_MOVES];
 	int moveNum;

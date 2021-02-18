@@ -28,6 +28,9 @@ static constexpr uint64_t fileMasks[8] = {
 	fileAMask, fileBMask, fileCMask, fileDMask, fileEMask, fileFMask, fileGMask, fileHMask
 };
 
+static constexpr uint64_t bordersMask = fileAMask | fileHMask | rank1Mask | rank8Mask;
+static constexpr uint64_t cornersMask = (1ull << A1) | (1ull << A8) | (1ull << H1) | (1ull << H8);
+
 static constexpr int msbTable[SQUARE_NUM] = {
 	0, 47,  1, 56, 48, 27,  2, 60,
    57, 49, 41, 37, 28, 16,  3, 61,

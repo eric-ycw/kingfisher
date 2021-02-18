@@ -227,10 +227,11 @@ uint64_t perft(Board& b, int depth, int ply) {
 	if (depth == 0) return 1ull;
 	// Use transposition table
 	// FIXME: Perft tt is bugged for some reason
+	/*
 	int pttnodes = probePTT(b.key, depth);
 	if (pttnodes != NO_NODES) {
 		// return pttnodes;
-	}
+	}*/
 	uint64_t count = 0ull;
 	auto moves = genAllMoves(b);
 	bool haveMove = false;
@@ -244,7 +245,7 @@ uint64_t perft(Board& b, int depth, int ply) {
 		}
 		undoMove(b, moves[i], u);
 	}
-	if (haveMove) { storePTT(b.key, depth, count); }
+	// if (haveMove) { storePTT(b.key, depth, count); }
 	if (!ply) std::cout << "Nodes: " << count << "\n";
 	if (!ply) std::cout << "Time: " << (double)(clock() - start) / (CLOCKS_PER_SEC / 1000) << "\n";
 	return (haveMove) ? count : 0ull;

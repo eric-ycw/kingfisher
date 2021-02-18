@@ -141,9 +141,11 @@ int evaluateKnights(const Board& b, uint64_t knights, const uint64_t& safeSquare
 int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color) {
 	int eval = 0;
 	int count = 0;
-	const uint64_t valid = ~b.colors[b.turn];
+	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (bishops) {
-		uint64_t attacks = getBishopAttacks(b, valid, color, popBit(bishops));
+		int sqr = popBit(bishops);
+		uint64_t attacks = *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr]);
+		attacks &= ~b.colors[b.turn];
 		// Mobility
 		eval += bishopMobility[countBits(attacks & safeSquares)];
 		// Add to attack bitmap
@@ -161,10 +163,11 @@ int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquare
 
 int evaluateRooks(const Board& b, uint64_t rooks, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color) {
 	int eval = 0;
-	const uint64_t valid = ~b.colors[b.turn];
+	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (rooks) {
 		int sqr = popBit(rooks);
-		uint64_t attacks = getRookAttacks(b, valid, color, sqr);
+		uint64_t attacks = *((((occ & rookBlockerMasks[sqr]) * rookMagics[sqr]) >> rookMagicShifts[sqr]) + rookMagicIndexIncrements[sqr]);
+		attacks &= ~b.colors[b.turn];
 		// Mobility
 		eval += rookMobility[countBits(attacks & safeSquares)];
 		// Add to attack bitmap
@@ -181,9 +184,12 @@ int evaluateRooks(const Board& b, uint64_t rooks, const uint64_t& safeSquares, c
 
 int evaluateQueens(const Board& b, uint64_t queens, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color) {
 	int eval = 0;
-	const uint64_t valid = ~b.colors[b.turn];
+	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (queens) {
-		uint64_t attacks = getQueenAttacks(b, valid, color, popBit(queens));
+		int sqr = popBit(queens);
+		uint64_t diagonalAttacks = *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr]);
+		uint64_t cardinalAttacks = *((((occ & rookBlockerMasks[sqr]) * rookMagics[sqr]) >> rookMagicShifts[sqr]) + rookMagicIndexIncrements[sqr]);
+		uint64_t attacks = (diagonalAttacks | cardinalAttacks) & ~b.colors[b.turn];
 		// Mobility
 		eval += queenMobility[countBits(attacks & safeSquares)];
 		// Add to attack bitmap

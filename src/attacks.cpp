@@ -1,6 +1,7 @@
 #include "attacks.h"
 #include "bitboard.h"
 #include "board.h"
+#include "masks.h"
 #include "types.h"
 
 uint64_t pawnAttacks[SQUARE_NUM][2];
@@ -154,20 +155,24 @@ uint64_t getQueenAttacks(const Board& b, const uint64_t& valid, int color, int s
 
 bool squareIsAttacked(const Board& b, int color, int sqr) {
 	const uint64_t enemy = b.colors[!color];
-	const uint64_t valid = ~b.colors[color];
+	const uint64_t occ = ~b.colors[NO_COLOR];
+	uint64_t diagonalAttacks = *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr]);
+	uint64_t cardinalAttacks = *((((occ & rookBlockerMasks[sqr]) * rookMagics[sqr]) >> rookMagicShifts[sqr]) + rookMagicIndexIncrements[sqr]);
 	return (pawnAttacks[sqr][color] & enemy & b.pieces[PAWN])
 		|| (knightAttacks[sqr] & enemy & b.pieces[KNIGHT])
-		|| (getBishopAttacks(b, valid, color, sqr) & enemy & (b.pieces[BISHOP] | b.pieces[QUEEN]))
-		|| (getRookAttacks(b, valid, color, sqr) & enemy & (b.pieces[ROOK] | b.pieces[QUEEN]))
+		|| (diagonalAttacks & enemy & (b.pieces[BISHOP] | b.pieces[QUEEN]))
+		|| (cardinalAttacks & enemy & (b.pieces[ROOK] | b.pieces[QUEEN]))
 		|| (kingAttacks[sqr] & enemy & b.pieces[KING]);
 }
 
 uint64_t squareAttackers(const Board& b, int color, int sqr) {
-	const uint64_t valid = ~b.colors[color];
+	const uint64_t occ = ~b.colors[NO_COLOR];
+	uint64_t diagonalAttacks = *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr]);
+	uint64_t cardinalAttacks = *((((occ & rookBlockerMasks[sqr]) * rookMagics[sqr]) >> rookMagicShifts[sqr]) + rookMagicIndexIncrements[sqr]);
 	return ((pawnAttacks[sqr][color] & b.pieces[PAWN])
 		 | (knightAttacks[sqr] & b.pieces[KNIGHT])
-		 | (getBishopAttacks(b, valid, color, sqr) & (b.pieces[BISHOP] | b.pieces[QUEEN]))
-		 | (getRookAttacks(b, valid, color, sqr) & (b.pieces[ROOK] | b.pieces[QUEEN]))
+		 | (diagonalAttacks & (b.pieces[BISHOP] | b.pieces[QUEEN]))
+		 | (diagonalAttacks & (b.pieces[ROOK] | b.pieces[QUEEN]))
 		 | (kingAttacks[sqr] & b.pieces[KING])) & b.colors[!color];
 }
 
