@@ -2,8 +2,11 @@
 #include "types.h"
 
 int countBits(uint64_t b) {
-	int r;
-	for (r = 0; b; ++r, b &= b - 1);
+	int r = 0;
+	while (b!= 0) {
+		b &= (b - 1);
+		r++;
+	}
 	return r;
 }
 

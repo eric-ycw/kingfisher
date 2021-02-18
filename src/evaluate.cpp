@@ -27,7 +27,8 @@ int evaluate(const Board& b, int color) {
 	int phase = getPhase(b);
 	int eval = 0;
 
-	// Piece values
+	// Step 1: Material
+	// The value of pieces change slightly as the game progresses to reflect their changing importance (e.g. pawns are more important in the endgame)
 	int whiteMaterial = 0;
 	int blackMaterial = 0;
 	for (int i = PAWN; i <= QUEEN; ++i) {
@@ -36,10 +37,13 @@ int evaluate(const Board& b, int color) {
 	}
 	eval += whiteMaterial - blackMaterial;
 
-	// Piece-square table
+	// Step 2a: Non-king piece-square tables
+	// A basic evaluation of the placement of pieces (e.g. knights are bad near corners)
 	eval += b.psqt;
 
-	// King piece-square table
+	// Step 2b: King piece-square table
+	// In the middlegame, the king is best placed near the corners of the board
+	// In the endgame, the king is best placed in the middle of the board
 	int whiteKingSqr = lsb(b.pieces[KING] & b.colors[WHITE]);
 	int blackKingSqr = lsb(b.pieces[KING] & b.colors[BLACK]);
 	eval += psqtScore(KING, psqtSquare(whiteKingSqr, WHITE), phase) - psqtScore(KING, psqtSquare(blackKingSqr, BLACK), phase);
@@ -48,7 +52,7 @@ int evaluate(const Board& b, int color) {
 	uint64_t whiteKingRing = kingRing[whiteKingSqr];
 	uint64_t blackKingRing = kingRing[blackKingSqr];
 	
-	// Evaluate pawns
+	// Step 3: Evaluate pawns
 	uint64_t whitePawns = b.pieces[PAWN] & b.colors[WHITE];
 	uint64_t blackPawns = b.pieces[PAWN] & b.colors[BLACK];
 	eval += evaluatePawns(b, whitePawns, blackPawns, blackKingRing, WHITE, phase);
@@ -62,7 +66,7 @@ int evaluate(const Board& b, int color) {
 	uint64_t whiteAttackSquares = ~blackSafeSquares;
 	uint64_t blackAttackSquares = ~whiteSafeSquares;
 
-	// Evaluate knights, bishops, rooks and queens
+	// Step 4: Evaluate knights, bishops, rooks and queens
 	eval += evaluateKnights(b, b.pieces[KNIGHT] & b.colors[WHITE], whiteSafeSquares, blackKingRing, whiteAttackSquares);
 	eval += evaluateBishops(b, b.pieces[BISHOP] & b.colors[WHITE], whiteSafeSquares, blackKingRing, whiteAttackSquares, WHITE);
 	eval += evaluateRooks(b, b.pieces[ROOK] & b.colors[WHITE], whiteSafeSquares, blackKingRing, whiteAttackSquares, WHITE);
@@ -73,6 +77,7 @@ int evaluate(const Board& b, int color) {
 	eval -= evaluateRooks(b, b.pieces[ROOK] & b.colors[BLACK], blackSafeSquares, whiteKingRing, blackAttackSquares, BLACK);
 	eval -= evaluateQueens(b, b.pieces[QUEEN] & b.colors[BLACK], blackSafeSquares, whiteKingRing, blackAttackSquares, BLACK);
 	
+	// Step 5: Evaluate kings
 	eval += evaluateKing(b, whiteKingSqr, whiteKingRing, whiteAttackSquares, blackAttackSquares, WHITE, phase);
 	eval -= evaluateKing(b, blackKingSqr, blackKingRing, blackAttackSquares, whiteAttackSquares, BLACK, phase);
 
@@ -80,21 +85,25 @@ int evaluate(const Board& b, int color) {
 }
 
 int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, const uint64_t& enemyKingRing, int color, int phase) {
-	// Probe pawn hash table
+	// Step 0: Probe pawn hash table
+	// As pawn structures are often the same for similar positions, we check if we have evaluated this pawn structure before
 	int eval = 0;
 	int hashEval = probePawnHash(pawns, color);
 	if (hashEval != NO_VALUE) {
 		eval = hashEval;
 	} else {
-		// Supported pawns
+		// Step 1: Supported pawns
+		// We give a bonus to pawns that defend each other
 		eval += (countBits((pawns & ((color == WHITE) ? (pawns >> 7) & ~fileAMask : (pawns << 7) & ~fileHMask)) |
 						(pawns & ((color == WHITE) ? (pawns >> 9) & ~fileHMask : (pawns << 9) & ~fileAMask)))) *
 						supportedPawnBonus;
 
-		// Phalanx pawns
+		// Step 2: Phalanx pawns
+		// We give a bonus to pawns that are beside each other
 		eval += (countBits((pawns & (pawns >> 1) & ~fileHMask) | (pawns & (pawns << 1) & ~fileAMask))) * phalanxPawnBonus;
 
-		// Doubled pawns
+		// Step 3: Doubled pawns
+		// We give a penalty if there are more than one pawns on each file
 		int doubled = 0;
 		for (int i = 0; i < 8; ++i) {
 			if (countBits(pawns & fileMasks[i]) > 1) eval -= doubledPawnPenalty;
@@ -106,10 +115,12 @@ int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, co
 	while (pawns) {
 		int sqr = popBit(pawns);
 
-		// Isolated pawns
+		// Step 4: Isolated pawns
+		// We give a penalty if there are pawns that do not have friendly pawns in neighboring files that could support them
 		eval -= ((neighborFileMasks[sqr % 8] & ~fileMasks[sqr % 8] & b.pieces[PAWN] & b.colors[color]) == 0) * isolatedPawnPenalty;
 
-		// Passed pawn
+		// Step 5: Passed pawn
+		// We give a bonus to pawns that have passed enemy pawns
 		int passedRank = passed(b, sqr, enemyPawns, color);
 		int baseScore = taperedScore(passedBonus[passedRank][MG], passedBonus[passedRank][EG], phase);
 		eval += (b.squares[sqr + (color == WHITE) * 8] == EMPTY) ? baseScore : baseScore / passedBlockReduction;

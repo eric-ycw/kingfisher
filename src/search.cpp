@@ -29,6 +29,7 @@ void initSearch(SearchInfo& si) {
 }
 
 void timeCheck(SearchInfo& si, const bool ignoreDepth, const bool ignoreNodeCount) {
+	// We check for time every 1024 nodes to reduce calls to clock()
 	bool depthFlag = (ignoreDepth || (!ignoreDepth && si.depth > 1));
 	bool nodeFlag = (ignoreNodeCount|| (!ignoreNodeCount && (((si.nodes + si.qnodes) & 1023) == 0)));
 	if (depthFlag && nodeFlag) {
@@ -47,16 +48,15 @@ void reduceHistory() {
 }
 
 int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& hashMove, bool& ageHistory) {
-	/*
+	
+	// We order our moves before we search them in order to maximize the chance of causing a beta-cutoff in the first few moves searched
 
-	1. Hash move
-	2. Good captures/promotions
-	3. Equal captures (0)
-	4. Killer moves
-	5. History moves (-5 to -10005)
-	6. Bad captures
-
-	*/
+	// 1. Hash move (score = INT_MAX - 1)
+	// 2. Good captures/promotions
+	// 3. Equal captures (score = 0)
+	// 4. Killer moves (score = -1 to -4)
+	// 5. History moves (score = -5 to -10005)
+	// 6. Bad captures (score = INT_MIN + 1)
 
 	const int from = m.getFrom();
 	const int to = m.getTo();
@@ -131,6 +131,8 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	bool isInCheck = inCheck(b, b.turn);
 	if (ply > si.seldepth) si.seldepth = ply;
 
+	// Step 0: Leaf node
+	// We either drop into quiescence search, or extend the search by 1 ply if we are in check
 	if (depth <= 0 && !isInCheck) {
 		// Depth is always non-negative
 		depth = 0;
@@ -156,24 +158,30 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	int ttEval = NO_VALUE;
 
 	if (!isRoot) {
-		// Check for 3-fold repetition
+		// Step 2: Check for 3-fold repetition
 		if (drawnByRepetition(b)) return 0;
 
-		// Mate distance pruning
+		// Step 3: Mate distance pruning
+		// We have already found mate, so we can prune irrevelant branches that have no chance of giving a shorter mate
+		// Does not increase playing strength, but greatly reduces tree sizes in mating positions
 		int mAlpha = (alpha > -MATE_SCORE + ply) ? alpha : -MATE_SCORE + ply;
 		int mBeta = (beta < MATE_SCORE - ply - 1) ? beta : MATE_SCORE - ply - 1;
 		if (mAlpha >= mBeta) return mAlpha;
 
-		// Probe transposition table
+		// Step 4a: Probe transposition table for cutoff
+		// If we have already visited this position, we might be able to get a cutoff early
 		int TTScore = probeTT(b.key, depth, alpha, beta, ply, si, ttEval);
 		if (TTScore != NO_VALUE && !isPV) {
 			return TTScore;
 		}
 	}
 
+	// Step 4b: Probe transposition table for evaluation score
+	// If we have already visited this position, we can reuse the evaluation score without having to calculate it again
 	int eval = (ttEval == NO_VALUE) ? evaluate(b, b.turn) : ttEval;
 
-	// Reverse futility pruning
+	// Step 5: Reverse futility pruning / Static null move pruning
+	// Our static evaluation score is so good that we can still cause a beta cutoff even after deducting a safety margin
 	if (depth <= futilityMaxDepth && !isInCheck && !isRoot && eval - futilityMargin * depth > beta) {
 		return eval - futilityMargin * depth;
 	}
@@ -182,7 +190,9 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	int TTFlag = TT_ALPHA;
 	Move bestMove = NO_MOVE;
 
-	// Null move pruning
+	// Step 6: Null move pruning
+	// If we don't make a move, and a reduced search still causes a beta cutoff, we do a cutoff immediately
+	// We do not use null move pruning in pawn endgames as it would fail in zugzwang
 	if (allowNull && depth >= nullMoveMinDepth && !isInCheck && getPhase(b) != 0) {
 		auto u = makeNullMove(b);
 		int nullMoveR = nullMoveBaseR + depth / 6;
@@ -204,6 +214,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 
 	while (stage != NO_MOVES_LEFT) {
+		// Step 7: We pick our next move from an ordered list of moves
 		Move m = pickNextMove(b, hashMove, stage, moves, ply, movesTried);
 		if (m == NO_MOVE) {
 			stage = NO_MOVES_LEFT;
@@ -233,16 +244,19 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 		bool canPrune = (!isNoisy && !isKiller && !isInCheck && !isPassedPawn && !isDangerousPawn && !isHash);
 
 
-		// Futility pruning
+		// Step 8: Futility pruning
+		// If this move has no potential of increasing alpha as defined by a safety margin, we do not search it
 		if (canPrune && fPrune && movesSearched > 0) {
 			continue;
 		}
 
-		// Late move pruning
+		// Step 9: Late move pruning / Move count pruning
+		// The moves at the back of the move list are probably bad, so we skip them
 		if (canPrune && depth <= lateMovePruningMaxDepth && movesSearched >= lateMovePruningMove * depth) {
 			continue;
 		}
 
+		// Step 10: Make move and check for legality
 		auto u = makeMove(b, m);
 		if (inCheck(b, !b.turn)) {
 			undoMove(b, m, u);
@@ -256,19 +270,21 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 		score = alpha + 1;
 
-		// Late move reduction
+		// Step 11a: Late move reduction
+		// The moves at the back of the move list are probably unimportant, so we search them at a reduced depth
 		if (depth >= lateMoveMinDepth && !isNoisy && !isInCheck && !isCheck && !isPassedPawn && !isDangerousPawn && !isHash) {
+			// Step 11b: We obtain base R from a precomputed table
 			int lmrIndex = (depth > 12);
-
 			int lateMoveR = lateMoveRTable[lmrIndex][std::min(movesSearched, 63)];
 
-			// Decrease reduction if killer move
+			// Step 11c: Decrease R by 1 if killer move
 			if (isKiller) lateMoveR -= 1;
 
 			lateMoveR = std::max(0, std::min(lateMoveR, depth - 1));  // Do not drop directly into qsearch
 			score = -search(b, depth - lateMoveR - 1, ply + 1, -alpha - 1, -alpha, si, pv);
 		}
 
+		// Step 11d: Do a complete research if the reduced search raised alpha
 		if (score > alpha) score = -search(b, depth - 1, ply + 1, -beta, -alpha, si, pv);
 
 		undoMove(b, m, u);
@@ -276,13 +292,18 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 		if (score >= beta) {
 			storeTT(b.key, depth, beta, TT_BETA, eval, ply, m);
 
-			// Update killers
+			// Step 12: Killer heuristic
+			// Quiet moves that cause a cutoff might be good in the same ply
+			// We maintain two buckets each ply with a total of two plies
 			if (!isNoisy && m != killers[0][ply]) {
 				killers[1][ply] = killers[0][ply];
 				killers[0][ply] = m;
 			}
 
-			// Update history score
+			// Step 13: History heuristic
+			// Quiet moves that cause lots of cutoffs across different positions are generally good
+			// We increment history scores by depth squared in order to increase the importance of cutoffs near the root
+			// We limit history scores to a certain maximum depth as they tend to become noise at higher depths
 			if (!isNoisy && depth <= historyMaxDepth) historyMoves[b.turn][pieceType(b.squares[from])][to] += depth * depth;
 
 			// ### DEBUG ###
@@ -313,10 +334,14 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 		}
 	}
 
+	// Step 14: Checkmate/stalemate
+	// If we haven't searched any legal moves, we are either checkmated or stalemated
 	if (!movesSearched) {
 		return (isInCheck) ? -MATE_SCORE + ply : 0;
 	}
 
+	// Step 15: Store transposition table
+	// We store the results of our search in the transposition table
 	storeTT(b.key, depth, alpha, TTFlag, eval, ply, bestMove);
 
 	if (isRoot) {
@@ -335,10 +360,11 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 	timeCheck(si, true, false);
 	if (si.abort) return alpha;
 
-	// Check for draw
+	// Step 1: Check for 3-fold repetition
 	if (drawnByRepetition(b)) return 0;
 
-	// Probe eval hash;
+	// Step 2: Probe quiescence search evaluation hash table
+	// If we have already visited this position, we can reuse the evaluation score without having to calculate it again
 	int qHashEval = probeQHash(b.key);
 	bool hit = (qHashEval != NO_VALUE);
 
@@ -347,10 +373,13 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 	if (!hit) storeQHash(b.key, eval);
 	if (hit) si.qHashHit++;
 
+	// Step 3: Standing pat
+	// If the static evaluation alone is good enough to cause a beta cutoff, we cutoff immediately
 	if (eval >= beta) return beta;
 	if (eval > alpha) alpha = eval;
 
-	// Delta pruning
+	// Step 4: Delta pruning
+	// We cutoff immediately if our greatest tactial gain plus a safety margin is still not enough to raise alpha
 	if (eval + greatestTacticalGain(b) + deltaMargin < alpha) return eval;
 
 	auto noisyMoves = genNoisyMoves(b);
@@ -367,10 +396,12 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 	for (int i = 0, size = scoredNoisyMoves.size(); i < size; ++i) {
 		Move m = scoredNoisyMoves[i];
 
-		// Delta pruning
+		// Step 5: Delta pruning
+		// We skip this move if the gain from making this capture plus a safety margin is still not enough to raise alpha
 		if (m.getFlag() < PROMOTION_KNIGHT && eval + deltaMargin + pieceValues[pieceType(b.squares[m.getTo()])][MG] < alpha) continue;
 
-		// Negative SEE pruning
+		// Step 6: Negative SEE pruning
+		// We skip this move if we would lose the exchange that would ensue
 		if (!staticExchangeEvaluation(b, m)) continue;
 
 		auto u = makeMove(b, m);

@@ -52,7 +52,7 @@ Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<
 
 			Move m = moves[movesTried - 1];
 
-			// We skip the hash move
+			// We skip the hash move, as we have already tried it
 			if (m == hashMove) {
 				movesTried--;
 				goto REPICK; // FIXME: Find a way to do this without goto

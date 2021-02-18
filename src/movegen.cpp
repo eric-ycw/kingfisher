@@ -70,7 +70,6 @@ void genBishopMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 		int sqr = popBit(bishops);
 		uint64_t bb = *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr]);
 		bb &= ~b.colors[b.turn] & ~b.pieces[KING];
-		// uint64_t bb = getBishopAttacks(occ, sqr) & ~b.pieces[KING];
 		if (noisyOnly) bb &= b.colors[!b.turn];
 		addPieceMoves(moves, bb, sqr);
 	}
