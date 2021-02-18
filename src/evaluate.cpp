@@ -81,7 +81,18 @@ int evaluate(const Board& b, int color) {
 	eval += evaluateKing(b, whiteKingSqr, whiteKingRing, whiteAttackSquares, blackAttackSquares, WHITE, phase);
 	eval -= evaluateKing(b, blackKingSqr, blackKingRing, blackAttackSquares, whiteAttackSquares, BLACK, phase);
 
+	// Step 6: Evaluate space
+	// eval += evaluateSpace(b, whiteSafeSquares, WHITE, phase);
+	// eval -= evaluateSpace(b, blackSafeSquares, BLACK, phase);
+
 	return (color == WHITE) ? eval : -eval;
+}
+
+int evaluateSpace(const Board& b, const uint64_t& safeSquares, const int& color, const int& phase) {
+	if (phase < spacePhaseLimit) return 0;
+	int pieceCount = countBits(b.colors[color] & ~b.pieces[PAWN] & ~b.pieces[KING]);
+	uint64_t spaceArea = safeSquares & centerMasks[color] & b.colors[NO_COLOR];
+	return countBits(spaceArea) * std::max(pieceCount - 2, 0);
 }
 
 int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, const uint64_t& enemyKingRing, int color, int phase) {
@@ -213,10 +224,14 @@ int evaluateQueens(const Board& b, uint64_t queens, const uint64_t& safeSquares,
 	return eval;
 }
 
-int evaluateKing(const Board& b, const int& king, const uint64_t& kingRing, const uint64_t& defendSquares, const uint64_t& attackSquares, int color, int phase) {
+int evaluateKing(const Board& b, const int& sqr, const uint64_t& kingRing, const uint64_t& defendSquares, const uint64_t& attackSquares, int color, int phase) {
 	int eval = 0;
 	// We penalise weak squares near king (king ring squares that are attacked but not defended by our pieces or pawns)
 	eval -= countBits(attackSquares & ~defendSquares & kingRing) * weakSquarePenalty;
+
+	// We give a penalty if the king is on a semi-open or open file
+	eval -= taperedScore(kingFilePenalty[openFile(b, sqr % 8)], 0, phase);
+
 	return eval;
 }
 

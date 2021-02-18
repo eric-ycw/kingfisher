@@ -71,7 +71,7 @@ void parseGo(Board& b, SearchInfo& si, std::string input) {
 	}
 
 	if (moveTime >= 0) {
-		time = moveTime - TIME_BUFFER;
+		time = moveTime - TIME_BUFFER * 3;
 		timeLeft = time;
 	}
 

@@ -76,6 +76,8 @@ static constexpr int kingPSQT[32][2] = {
 
 static constexpr int psqtFileTable[8] = { 0, 1, 2, 3, 3, 2, 1, 0 };
 
+static constexpr int spacePhaseLimit = 128;
+
 static constexpr int supportedPawnBonus = 20;
 static constexpr int phalanxPawnBonus = 20;
 static constexpr int doubledPawnPenalty = 48;
@@ -109,6 +111,7 @@ static constexpr int queenMobility[28]
 static constexpr int kingAttackBonus = 12;
 static constexpr int kingAttackerBonus[5] = { 20, 40, 35, 30, 10 };
 static constexpr int weakSquarePenalty = 0; // FIXME: Elo loss
+static constexpr int kingFilePenalty[3] = { 0, 15, 40 };
 
 static constexpr int bishopPairBonus = 35;
 
@@ -123,12 +126,14 @@ int psqtScore(int piece, int sqr, int phase);
 
 int evaluate(const Board& b, int color);
 
+int evaluateSpace(const Board& b, const uint64_t& safeSquares, const int& color, const int& phase);
+
 int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, const uint64_t& enemyKingRing, int color, int phase);
 int evaluateKnights(const Board& b, uint64_t knights, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares);
 int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color);
 int evaluateRooks(const Board& b, uint64_t rooks, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color);
 int evaluateQueens(const Board& b, uint64_t queens, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color);
-int evaluateKing(const Board& b, const int& king, const uint64_t& kingRing, const uint64_t& defendSquares, const uint64_t& attackSquares, int color, int phase);
+int evaluateKing(const Board& b, const int& sqr, const uint64_t& kingRing, const uint64_t& defendSquares, const uint64_t& attackSquares, int color, int phase);
 
 int passed(const Board& b, int sqr, const uint64_t& enemyPawns, int color);
 bool isPassed(const Board&b, int sqr, int color);

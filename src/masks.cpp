@@ -112,8 +112,7 @@ void initKingRing() {
         uint64_t kingSquare = (1ull << sqr);
 
         // FIXME: Expanding king ring to a full 9 squares at borders and corners somehow leads to elo loss
-        /*
-        if (kingSquare & fileAMask) {
+        /*if (kingSquare & fileAMask) {
             if (kingSquare & rank1Mask) { // A1
                 kingSquare = (1ull << B2);
             } else if (kingSquare & rank8Mask) { // A8
