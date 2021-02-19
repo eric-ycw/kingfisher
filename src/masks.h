@@ -9,7 +9,7 @@ extern uint64_t rookBlockerMasks[SQUARE_NUM];
 extern uint64_t pawnAdvanceMasks[8][2];
 extern uint64_t neighborFileMasks[8];
 extern uint64_t passedPawnMasks[SQUARE_NUM][2];
-
+extern uint64_t squareColorMasks[2]; // Dark squares, light squares
 extern uint64_t kingRing[SQUARE_NUM];
 
 extern uint64_t bishopMoves[5248];
@@ -142,7 +142,7 @@ void initRookMagics();
 void initPawnAdvanceMasks();
 void initNeighborFileMasks();
 void initPassedPawnMasks();
-
+void initSquareColorMasks();
 void initKingRing();
 
 void initMasks();
