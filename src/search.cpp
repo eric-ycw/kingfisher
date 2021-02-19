@@ -20,7 +20,7 @@ void initSearch(SearchInfo& si) {
 	for (int i = 0; i < 2; ++i) {
 		for (int j = 0; j < 6; ++j) {
 			for (int k = 0; k < SQUARE_NUM; k++) {
-				historyMoves[i][j][k] = historyMax / 2;
+				historyMoves[i][j][k] = 0;
 			}
 		}
 	}
@@ -82,6 +82,9 @@ int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& has
 	int historyScore = historyMoves[b.turn][pieceType(b.squares[from])][to];
 	if (historyScore >= historyMax) { 
 		historyScore = historyMax;
+		ageHistory = true;
+	} else if (historyScore <= -historyMax) {
+		historyScore = -historyMax;
 		ageHistory = true;
 	}
 	return (-historyMax - 5) + historyScore;
@@ -272,7 +275,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 		// Step 11a: Late move reduction
 		// The moves at the back of the move list are probably unimportant, so we search them at a reduced depth
-		if (depth >= lateMoveMinDepth && !isNoisy && !isInCheck && !isCheck && !isPassedPawn && !isDangerousPawn && !isHash) {
+		if (depth >= lateMoveMinDepth && !isNoisy && !isInCheck && !isCheck && !isPassedPawn && !isDangerousPawn && !isHash && movesSearched > 1) {
 			// Step 11b: We obtain base R from a precomputed table
 			int lmrIndex = (depth > 12);
 			int lateMoveR = lateMoveRTable[lmrIndex][std::min(movesSearched, 63)];
@@ -294,7 +297,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 			// Step 12: Killer heuristic
 			// Quiet moves that cause a cutoff might be good in the same ply
-			// We maintain two buckets each ply with a total of two plies
+			// We maintain two buckets each ply
 			if (!isNoisy && m != killers[0][ply]) {
 				killers[1][ply] = killers[0][ply];
 				killers[0][ply] = m;
@@ -331,6 +334,8 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 				if (pv[i] == NO_MOVE) break;
 				ppv[i] = pv[i];
 			}
+		} else {
+			if (!isNoisy && depth <= historyMaxDepth) historyMoves[b.turn][pieceType(b.squares[from])][to] -= depth * depth / 5;
 		}
 	}
 

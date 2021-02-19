@@ -82,8 +82,8 @@ int evaluate(const Board& b, int color) {
 	eval -= evaluateKing(b, blackKingSqr, blackKingRing, blackAttackSquares, whiteAttackSquares, BLACK, phase);
 
 	// Step 6: Evaluate space
-	// eval += evaluateSpace(b, whiteSafeSquares, WHITE, phase);
-	// eval -= evaluateSpace(b, blackSafeSquares, BLACK, phase);
+	eval += evaluateSpace(b, whiteSafeSquares, WHITE, phase);
+	eval -= evaluateSpace(b, blackSafeSquares, BLACK, phase);
 
 	return (color == WHITE) ? eval : -eval;
 }
@@ -92,7 +92,7 @@ int evaluateSpace(const Board& b, const uint64_t& safeSquares, const int& color,
 	if (phase < spacePhaseLimit) return 0;
 	int pieceCount = countBits(b.colors[color] & ~b.pieces[PAWN] & ~b.pieces[KING]);
 	uint64_t spaceArea = safeSquares & centerMasks[color] & b.colors[NO_COLOR];
-	return countBits(spaceArea) * std::max(pieceCount - 2, 0);
+	return countBits(spaceArea) * std::max(pieceCount - 3, 0);
 }
 
 int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, const uint64_t& enemyKingRing, int color, int phase) {
