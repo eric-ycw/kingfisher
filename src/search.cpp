@@ -303,7 +303,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 				killers[0][ply] = m;
 			}
 
-			// Step 13: History heuristic
+			// Step 13a: History heuristic
 			// Quiet moves that cause lots of cutoffs across different positions are generally good
 			// We increment history scores by depth squared in order to increase the importance of cutoffs near the root
 			// We limit history scores to a certain maximum depth as they tend to become noise at higher depths
@@ -335,6 +335,8 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 				ppv[i] = pv[i];
 			}
 		} else {
+			// Step 13b: History heuristic
+			// We give a penalty to quiet moves that did not raise alpha
 			if (!isNoisy && depth <= historyMaxDepth) historyMoves[b.turn][pieceType(b.squares[from])][to] -= depth * depth / 5;
 		}
 	}

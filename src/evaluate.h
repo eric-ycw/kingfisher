@@ -117,6 +117,8 @@ static constexpr int bishopPairBonus = 35;
 
 static constexpr int rookFileBonus[3] = { 0, 25, 40 };
 
+static constexpr int tempoBonus = 20;
+
 static inline int psqtSquare(int square, int color) {
 	assert(validSquare(square));
 	return ((color == WHITE) ? 7 - square / 8 : square / 8) * 4 + psqtFileTable[square % 8];

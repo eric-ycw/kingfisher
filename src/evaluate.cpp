@@ -85,6 +85,9 @@ int evaluate(const Board& b, int color) {
 	eval += evaluateSpace(b, whiteSafeSquares, WHITE, phase);
 	eval -= evaluateSpace(b, blackSafeSquares, BLACK, phase);
 
+	// Step 7: Tempo bonus
+	eval += (b.turn == WHITE) ? tempoBonus : -tempoBonus;
+
 	return (color == WHITE) ? eval : -eval;
 }
 
