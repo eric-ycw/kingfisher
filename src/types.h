@@ -109,4 +109,9 @@ static inline bool validSquare(int sqr) {
 	return 0 <= sqr && sqr < SQUARE_NUM;
 }
 
+static inline bool squareColor(int sqr) {
+	return ((sqr % 2 == 0) != ((sqr / 8) % 2 == 0));
+}
+
+
 #endif

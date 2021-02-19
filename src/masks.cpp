@@ -9,7 +9,7 @@ uint64_t rookBlockerMasks[SQUARE_NUM];
 uint64_t pawnAdvanceMasks[8][2];
 uint64_t neighborFileMasks[8];
 uint64_t passedPawnMasks[SQUARE_NUM][2];
-
+uint64_t squareColorMasks[2];
 uint64_t kingRing[SQUARE_NUM];
 
 uint64_t bishopMoves[5248];
@@ -107,6 +107,15 @@ void initPassedPawnMasks() {
     }
 }
 
+void initSquareColorMasks() {
+    squareColorMasks[0] = 0ull;
+    squareColorMasks[1] = 0ull;
+    for (int sqr = 0; sqr < SQUARE_NUM; ++sqr) {
+        squareColorMasks[squareColor(sqr)] |= (1ull << sqr);
+    }
+
+}
+
 void initKingRing() {
     for (int sqr = 0; sqr < SQUARE_NUM; ++ sqr) {
         uint64_t kingSquare = (1ull << sqr);
@@ -147,7 +156,7 @@ void initMasks() {
     initPawnAdvanceMasks();
     initNeighborFileMasks();
     initPassedPawnMasks();
-
+    initSquareColorMasks();
     initKingRing();
 
     initBishopMagics();

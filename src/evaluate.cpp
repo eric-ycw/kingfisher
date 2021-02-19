@@ -88,6 +88,10 @@ int evaluate(const Board& b, int color) {
 	// Step 7: Tempo bonus
 	eval += (b.turn == WHITE) ? tempoBonus : -tempoBonus;
 
+	// Step 8: Evaluate threats
+	eval += evaluateThreats(b, whiteAttackSquares, blackAttackSquares, WHITE);
+	eval -= evaluateThreats(b, blackAttackSquares, whiteAttackSquares, BLACK);
+
 	return (color == WHITE) ? eval : -eval;
 }
 
@@ -96,6 +100,21 @@ int evaluateSpace(const Board& b, const uint64_t& safeSquares, const int& color,
 	int pieceCount = countBits(b.colors[color] & ~b.pieces[PAWN] & ~b.pieces[KING]);
 	uint64_t spaceArea = safeSquares & centerMasks[color] & b.colors[NO_COLOR];
 	return countBits(spaceArea) * std::max(pieceCount - 3, 0);
+}
+
+int evaluateThreats(const Board&b, const uint64_t& defendedSquares, const uint64_t& attackedSquares, const int& color) {
+	int eval = 0;
+
+	// Step 1: Safe pawn threat
+	// We give a bonus for threats made by our safe pawns to non-pawn enemies
+	// A safe pawn is a pawn that is not attacked by enemies or defended by us
+	uint64_t safePawns = (defendedSquares | ~attackedSquares) & b.pieces[PAWN] & b.colors[color];
+	uint64_t safePawnAttackSquares = (color == WHITE) ? (((safePawns << 7) & ~fileHMask) | ((safePawns << 9) & ~fileAMask)) :
+														(((safePawns >> 7) & ~fileAMask) | ((safePawns >> 9) & ~fileHMask));
+	eval += safePawnThreatBonus * countBits(safePawnAttackSquares & b.colors[!color] & ~b.pieces[PAWN]);
+	
+	return eval;
+	
 }
 
 int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, const uint64_t& enemyKingRing, int color, int phase) {
@@ -171,10 +190,18 @@ int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquare
 		int sqr = popBit(bishops);
 		uint64_t attacks = *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr]);
 		attacks &= ~b.colors[b.turn];
-		// Mobility
-		eval += bishopMobility[countBits(attacks & safeSquares)];
+
 		// Add to attack bitmap
 		attackSquares |= attacks;
+
+		// Bad bishops
+		int bishopPawns = countBits(b.pieces[PAWN] & b.colors[color] & squareColorMasks[squareColor(sqr)]);
+		int blockedCentrePawns = countBits((b.pieces[PAWN] >> 8) & b.pieces[PAWN] & middleFileMask);
+		eval -= badBishopPenalty * (bishopPawns * (1 + blockedCentrePawns));
+
+		// Mobility
+		eval += bishopMobility[countBits(attacks & safeSquares)];
+
 		// King attacks
 		int kingAttacks = countBits(attacks & enemyKingRing);
 		eval += kingAttacks * kingAttackBonus;
@@ -227,10 +254,10 @@ int evaluateQueens(const Board& b, uint64_t queens, const uint64_t& safeSquares,
 	return eval;
 }
 
-int evaluateKing(const Board& b, const int& sqr, const uint64_t& kingRing, const uint64_t& defendSquares, const uint64_t& attackSquares, int color, int phase) {
+int evaluateKing(const Board& b, const int& sqr, const uint64_t& kingRing, const uint64_t& defendedSquares, const uint64_t& attackedSquares, int color, int phase) {
 	int eval = 0;
 	// We penalise weak squares near king (king ring squares that are attacked but not defended by our pieces or pawns)
-	eval -= countBits(attackSquares & ~defendSquares & kingRing) * weakSquarePenalty;
+	eval -= countBits(attackedSquares & ~defendedSquares & kingRing) * weakSquarePenalty;
 
 	// We give a penalty if the king is on a semi-open or open file
 	eval -= taperedScore(kingFilePenalty[openFile(b, sqr % 8)], 0, phase);

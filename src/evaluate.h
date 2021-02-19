@@ -113,11 +113,14 @@ static constexpr int kingAttackerBonus[5] = { 20, 40, 35, 30, 10 };
 static constexpr int weakSquarePenalty = 0; // FIXME: Elo loss
 static constexpr int kingFilePenalty[3] = { 0, 15, 40 };
 
+static constexpr int badBishopPenalty = 4;
 static constexpr int bishopPairBonus = 35;
 
 static constexpr int rookFileBonus[3] = { 0, 25, 40 };
 
 static constexpr int tempoBonus = 20;
+
+static constexpr int safePawnThreatBonus = 60;
 
 static inline int psqtSquare(int square, int color) {
 	assert(validSquare(square));
@@ -129,13 +132,14 @@ int psqtScore(int piece, int sqr, int phase);
 int evaluate(const Board& b, int color);
 
 int evaluateSpace(const Board& b, const uint64_t& safeSquares, const int& color, const int& phase);
+int evaluateThreats(const Board&b, const uint64_t& defendedSquares, const uint64_t& attackedSquares, const int& color);
 
 int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, const uint64_t& enemyKingRing, int color, int phase);
 int evaluateKnights(const Board& b, uint64_t knights, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares);
 int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color);
 int evaluateRooks(const Board& b, uint64_t rooks, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color);
 int evaluateQueens(const Board& b, uint64_t queens, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color);
-int evaluateKing(const Board& b, const int& sqr, const uint64_t& kingRing, const uint64_t& defendSquares, const uint64_t& attackSquares, int color, int phase);
+int evaluateKing(const Board& b, const int& sqr, const uint64_t& kingRing, const uint64_t& defendedSquares, const uint64_t& attackedSquares, int color, int phase);
 
 int passed(const Board& b, int sqr, const uint64_t& enemyPawns, int color);
 bool isPassed(const Board&b, int sqr, int color);
