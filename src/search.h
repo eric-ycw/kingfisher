@@ -205,10 +205,10 @@ void timeOver(SearchInfo& si, const bool ignoreDepth, const bool ignoreNodeCount
 void updateHistory(int& entry, int delta);
 
 int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& hashMove);
-std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove);
+std::vector<ScoredMove> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove);
 
 int scoreNoisyMove(const Board& b, const Move& m);
-std::vector<Move> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves);
+std::vector<ScoredMove> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves);
 
 int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Move(&ppv)[MAX_PLY], bool allowNull);
 int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[MAX_PLY]);

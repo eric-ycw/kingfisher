@@ -86,7 +86,16 @@ static constexpr int isolatedPawnPenalty = 14;
 static constexpr int passedBonus[7][2] = {
 	{0, 0}, {0, 20}, {5, 40}, {15, 60}, {50, 100}, {120, 180}, {250, 360}
 };
-static constexpr double passedBlockReduction = 2;
+static constexpr int passedBlockReduction = 2;
+static constexpr int passedBlockedBonus[7][2] = {
+	{passedBonus[0][0] / passedBlockReduction, passedBonus[0][1] / passedBlockReduction},
+	{passedBonus[1][0] / passedBlockReduction, passedBonus[1][1] / passedBlockReduction},
+	{passedBonus[2][0] / passedBlockReduction, passedBonus[2][1] / passedBlockReduction},
+	{passedBonus[3][0] / passedBlockReduction, passedBonus[3][1] / passedBlockReduction},
+	{passedBonus[4][0] / passedBlockReduction, passedBonus[4][1] / passedBlockReduction},
+	{passedBonus[5][0] / passedBlockReduction, passedBonus[5][1] / passedBlockReduction},
+	{passedBonus[6][0] / passedBlockReduction, passedBonus[6][1] / passedBlockReduction}
+};
 
 static constexpr int knightMobility[28]
 {

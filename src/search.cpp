@@ -78,13 +78,13 @@ int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& has
 	return (-historyMax - 5) + historyScore;
 }
 
-std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove) {
+std::vector<ScoredMove> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove) {
 	int phase = getPhase(b);
 	int size = moves.size();
-	std::vector<Move> scoredMoves(size);
+	std::vector<ScoredMove> scoredMoves(size);
 
 	for (int i = 0; i < size; ++i) {
-		scoredMoves[i] = moves[i];
+		scoredMoves[i].m = moves[i];
 		scoredMoves[i].score = scoreMove(b, moves[i], ply, phase, hashMove);
 	}
 	return scoredMoves;
@@ -105,11 +105,11 @@ int scoreNoisyMove(const Board& b, const Move& m) {
 	return score * 100;
 }
 
-std::vector<Move> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves) {
+std::vector<ScoredMove> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves) {
 	int size = moves.size();
-	std::vector<Move> scoredMoves(size);
+	std::vector<ScoredMove> scoredMoves(size);
 	for (int i = 0; i < size; ++i) {
-		scoredMoves[i] = moves[i];
+		scoredMoves[i].m = moves[i];
 		scoredMoves[i].score = scoreNoisyMove(b, moves[i]);
 	}
 	return scoredMoves;
@@ -200,7 +200,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	int stage = START_PICK;
 	int movesSearched = 0;
 	int movesTried = 0;
-	std::vector<Move> moves;
+	std::vector<ScoredMove> moves;
 	Move hashMove = probeHashMove(b.key);
 
 
@@ -389,7 +389,7 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 	auto noisyMoves = genNoisyMoves(b);
 	if (noisyMoves.empty()) return eval;
 
-	std::vector<Move> scoredNoisyMoves = scoreNoisyMoves(b, noisyMoves);
+	std::vector<ScoredMove> scoredNoisyMoves = scoreNoisyMoves(b, noisyMoves);
 	std::sort(scoredNoisyMoves.begin(), scoredNoisyMoves.end(), [](const auto& a, const auto& b) { return a.score > b.score; });
 
 	Move pv[MAX_PLY];
@@ -398,7 +398,7 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 	int movesSearched = 0;
 
 	for (int i = 0, size = scoredNoisyMoves.size(); i < size; ++i) {
-		Move m = scoredNoisyMoves[i];
+		Move m = scoredNoisyMoves[i].m;
 
 		// Step 5: Delta pruning
 		// We skip this move if the gain from making this capture plus a safety margin is still not enough to raise alpha

@@ -7,7 +7,7 @@
 #include "search.h"
 #include "types.h"
 
-Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<Move>& moves, const int& ply, int& movesTried) {
+Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<ScoredMove>& moves, const int& ply, int& movesTried) {
 
 	switch (stage) {
 		
@@ -49,15 +49,13 @@ Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<
 				return NO_MOVE;
 			}
 
-			Move m = moves[movesTried - 1];
-
 			// We skip the hash move, as we have already tried it
-			if (m == hashMove) {
+			if (moves[movesTried - 1].m == hashMove) {
 				movesTried--;
 				goto REPICK; // FIXME: Find a way to do this without goto
 			}
 
-			return m;
+			return moves[movesTried - 1].m;
 		}
 
 		default: {

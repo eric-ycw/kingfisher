@@ -8,6 +8,8 @@
 
 int psqtScore(int piece, int sqr, int phase) {
 	switch (piece) {
+	default:
+		return 0;
 	case PAWN:
 		return pawnPSQT[sqr];
 	case KNIGHT:
@@ -122,6 +124,8 @@ int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, co
 	// As pawn structures are often the same for similar positions, we check if we have evaluated this pawn structure before
 	int eval = 0;
 	int hashEval = probePawnHash(pawns, color);
+	uint64_t pawnsCopy = pawns;
+
 	if (hashEval != NO_VALUE) {
 		eval = hashEval;
 	} else {
@@ -137,7 +141,6 @@ int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, co
 
 		// Step 3: Doubled pawns
 		// We give a penalty if there are more than one pawns on each file
-		int doubled = 0;
 		for (int i = 0; i < 8; ++i) {
 			if (countBits(pawns & fileMasks[i]) > 1) eval -= doubledPawnPenalty;
 		}
@@ -154,9 +157,12 @@ int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, co
 
 		// Step 5: Passed pawn
 		// We give a bonus to pawns that have passed enemy pawns
+		// We reduce the bonus if the passed pawn is being blocked by a piece
 		int passedRank = passed(b, sqr, enemyPawns, color);
-		int baseScore = taperedScore(passedBonus[passedRank][MG], passedBonus[passedRank][EG], phase);
-		eval += (b.squares[sqr + (color == WHITE) * 8] == EMPTY) ? baseScore : baseScore / passedBlockReduction;
+		bool blocked = (b.squares[sqr + (color == WHITE) * 8] == EMPTY);
+		int mgPassedScore = blocked ? passedBonus[passedRank][MG] : passedBlockedBonus[passedRank][MG];
+		int egPassedScore = blocked ? passedBonus[passedRank][EG] : passedBlockedBonus[passedRank][EG];
+		eval += taperedScore(mgPassedScore, egPassedScore, phase);
 
 		// King attacks
 		eval += taperedScore(countBits(pawnAttacks[sqr][color] & enemyKingRing) * kingAttackerBonus[PAWN], 0, phase / 2);

@@ -13,20 +13,13 @@ struct Move {
 	// t: 6 bits, to square
 	// g: 4 bits, move flag
 
+	uint16_t code = 0;	
+
 	Move() {}
 
 	Move(int fromParam, int toParam, uint8_t flagParam) {
 		code = (fromParam << 10) | (toParam << 4) | flagParam;
-		score = NO_SCORE;
 	}
-
-	Move(int fromParam, int toParam, uint8_t flagParam, int scoreParam) {
-		code = (fromParam << 10) | (toParam << 4) | flagParam;
-		score = scoreParam;
-	}
-
-	uint16_t code = 0;
-	int score = NO_SCORE;
 
 	inline int getFrom() const {
 		return code >> 10;
@@ -42,7 +35,6 @@ struct Move {
 
 	inline void operator=(const Move& m) {
 		code = m.code;
-		score = m.score;
 	}
 
 	inline bool operator==(const Move& m) const {
@@ -51,6 +43,31 @@ struct Move {
 
 	inline bool operator!=(const Move& m) const {
 		return (code != m.code);
+	}
+
+};
+
+struct ScoredMove {
+
+	Move m;
+	int score = 0;
+
+	ScoredMove() {}
+
+	ScoredMove(const Move& mParam) {
+		m = mParam;
+	}
+
+	inline void operator=(const Move& mParam) {
+		m = mParam;
+	}
+
+	inline bool operator==(const Move& mParam) const {
+		return (m == mParam);
+	}
+
+	inline bool operator!=(const Move& mParam) const {
+		return (m != mParam);
 	}
 };
 
