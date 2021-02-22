@@ -155,7 +155,9 @@ static constexpr int aspirationWindow = 35;
 static Move killers[2][MAX_PLY + 1];
 static constexpr int killerBonus[4] = { -1, -2, -3, -4 };
 
-static constexpr int historyMax = 10000;
+static constexpr int historyMultiplier = 32;
+static constexpr int historyDivisor = 512;
+static constexpr int historyMax = historyMultiplier * historyDivisor;
 static constexpr int historyMaxDepth = 8;
 static int historyMoves[2][6][SQUARE_NUM];
 
@@ -200,10 +202,10 @@ void initSearch(SearchInfo& si);
 
 void timeOver(SearchInfo& si, const bool ignoreDepth, const bool ignoreNodeCount);
 
-void reduceHistory();
+void updateHistory(int& entry, int delta);
 
-int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& hashMove, bool& ageHistory);
-std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove, bool& ageHistory);
+int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& hashMove);
+std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove);
 
 int scoreNoisyMove(const Board& b, const Move& m);
 std::vector<Move> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves);

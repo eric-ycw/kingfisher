@@ -31,8 +31,7 @@ Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<
 			bool ageHistory = false;
 
 			auto unscoredMoves = genAllMoves(b);
-			moves = scoreMoves(b, unscoredMoves, ply, hashMove, ageHistory);
-			if (ageHistory) reduceHistory();
+			moves = scoreMoves(b, unscoredMoves, ply, hashMove);
 			std::sort(moves.begin(), moves.end(), [](const auto& a, const auto& b) { return a.score > b.score; });
 
 			[[fallthrough]];

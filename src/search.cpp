@@ -37,17 +37,12 @@ void timeCheck(SearchInfo& si, const bool ignoreDepth, const bool ignoreNodeCoun
 	}
 }
 
-void reduceHistory() {
-	for (int i = 0; i < 2; ++i) {
-		for (int j = 0; j < 6; ++j) {
-			for (int k = 0; k < SQUARE_NUM; k++) {
-				historyMoves[i][j][k] /= 2;
-			}
-		}
-	}
+void updateHistory(int& entry, int delta) {
+	// We use an arithmetico–geometric sequence to bound the history score
+	entry += historyMultiplier * delta - entry * abs(delta) / historyDivisor;
 }
 
-int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& hashMove, bool& ageHistory) {
+int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& hashMove) {
 	
 	// We order our moves before we search them in order to maximize the chance of causing a beta-cutoff in the first few moves searched
 
@@ -55,7 +50,7 @@ int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& has
 	// 2. Good captures/promotions
 	// 3. Equal captures (score = 0)
 	// 4. Killer moves (score = -1 to -4)
-	// 5. History moves (score = -5 to -10005)
+	// 5. History moves
 	// 6. Bad captures (score = INT_MIN + 1)
 
 	const int from = m.getFrom();
@@ -80,24 +75,17 @@ int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& has
 
 	// History heuristic
 	int historyScore = historyMoves[b.turn][pieceType(b.squares[from])][to];
-	if (historyScore >= historyMax) { 
-		historyScore = historyMax;
-		ageHistory = true;
-	} else if (historyScore <= -historyMax) {
-		historyScore = -historyMax;
-		ageHistory = true;
-	}
 	return (-historyMax - 5) + historyScore;
 }
 
-std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove, bool& ageHistory) {
+std::vector<Move> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove) {
 	int phase = getPhase(b);
 	int size = moves.size();
 	std::vector<Move> scoredMoves(size);
 
 	for (int i = 0; i < size; ++i) {
 		scoredMoves[i] = moves[i];
-		scoredMoves[i].score = scoreMove(b, moves[i], ply, phase, hashMove, ageHistory);
+		scoredMoves[i].score = scoreMove(b, moves[i], ply, phase, hashMove);
 	}
 	return scoredMoves;
 }
@@ -228,6 +216,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 		const int from = m.getFrom();
 		const int to = m.getTo();
 		const int flag = m.getFlag();
+		const int historyScore = historyMoves[b.turn][pieceType(b.squares[from])][to];
 
 		// Move flags
 		bool isCapture = (b.squares[to] != EMPTY || flag == EP_MOVE);
@@ -283,11 +272,15 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 			// Step 11c: Decrease R by 1 if killer move
 			if (isKiller) lateMoveR -= 1;
 
+			// Step 11d: Decrease/increase R if move has good/bad history
+			// FIXME: Elo loss
+			// lateMoveR -= std::max(std::min(historyScore * 2 / historyMax, 2), -2);
+
 			lateMoveR = std::max(0, std::min(lateMoveR, depth - 1));  // Do not drop directly into qsearch
 			score = -search(b, depth - lateMoveR - 1, ply + 1, -alpha - 1, -alpha, si, pv);
 		}
 
-		// Step 11d: Do a complete research if the reduced search raised alpha
+		// Step 12: Do a complete search if we are searching for the first time/the reduced search from LMR raised alpha
 		if (score > alpha) score = -search(b, depth - 1, ply + 1, -beta, -alpha, si, pv);
 
 		undoMove(b, m, u);
@@ -295,7 +288,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 		if (score >= beta) {
 			storeTT(b.key, depth, beta, TT_BETA, eval, ply, m);
 
-			// Step 12: Killer heuristic
+			// Step 13: Killer heuristic
 			// Quiet moves that cause a cutoff might be good in the same ply
 			// We maintain two buckets each ply
 			if (!isNoisy && m != killers[0][ply]) {
@@ -303,11 +296,13 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 				killers[0][ply] = m;
 			}
 
-			// Step 13a: History heuristic
+			// Step 14a: History heuristic
 			// Quiet moves that cause lots of cutoffs across different positions are generally good
 			// We increment history scores by depth squared in order to increase the importance of cutoffs near the root
 			// We limit history scores to a certain maximum depth as they tend to become noise at higher depths
-			if (!isNoisy && depth <= historyMaxDepth) historyMoves[b.turn][pieceType(b.squares[from])][to] += depth * depth;
+			if (!isNoisy && depth <= historyMaxDepth) {
+				updateHistory(historyMoves[b.turn][pieceType(b.squares[from])][to], depth * depth);
+			}
 
 			// ### DEBUG ###
 			// Update near-leaf move ordering info
@@ -335,19 +330,21 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 				ppv[i] = pv[i];
 			}
 		} else {
-			// Step 13b: History heuristic
+			// Step 14b: History heuristic
 			// We give a penalty to quiet moves that did not raise alpha
-			if (!isNoisy && depth <= historyMaxDepth) historyMoves[b.turn][pieceType(b.squares[from])][to] -= depth * depth / 5;
+			if (!isNoisy && depth <= historyMaxDepth) {
+				updateHistory(historyMoves[b.turn][pieceType(b.squares[from])][to], -depth * depth / 2);
+			}
 		}
 	}
 
-	// Step 14: Checkmate/stalemate
+	// Step 15: Checkmate/stalemate
 	// If we haven't searched any legal moves, we are either checkmated or stalemated
 	if (!movesSearched) {
 		return (isInCheck) ? -MATE_SCORE + ply : 0;
 	}
 
-	// Step 15: Store transposition table
+	// Step 16: Store transposition table
 	// We store the results of our search in the transposition table
 	storeTT(b.key, depth, alpha, TTFlag, eval, ply, bestMove);
 
