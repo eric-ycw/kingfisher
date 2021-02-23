@@ -262,9 +262,11 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 		score = alpha + 1;
 
+		bool isGoodNoisy = (isNoisy && staticExchangeEvaluation(b, m, -seeMargin * depth));
+
 		// Step 11a: Late move reduction
 		// The moves at the back of the move list are probably unimportant, so we search them at a reduced depth
-		if (depth >= lateMoveMinDepth && !isNoisy && !isInCheck && !isCheck && !isPassedPawn && !isDangerousPawn && !isHash && movesSearched > 1) {
+		if (depth >= lateMoveMinDepth && !isGoodNoisy && !isInCheck && !isCheck && !isPassedPawn && !isDangerousPawn && !isHash && movesSearched > 1) {
 			// Step 11b: We obtain base R from a precomputed table
 			int lmrIndex = (depth > 12);
 			int lateMoveR = lateMoveRTable[lmrIndex][std::min(movesSearched, 63)];
