@@ -39,7 +39,7 @@ Undo makeNormalMove(Board& b, const Move& m) {
 	const int toType = pieceType(toPiece);	
 
 	// Save board state in undo object
-	Undo u(b.key, b.epSquare, b.castlingRights, b.fiftyMove, b.psqt, toPiece);
+	Undo u(b.key, b.epSquare, b.castlingRights, b.fiftyMove, b.psqt[MG], b.psqt[EG], toPiece);
 
 	b.fiftyMove = (fromType == PAWN || toPiece != EMPTY) ? 0 : b.fiftyMove + 1;
 
@@ -68,9 +68,14 @@ Undo makeNormalMove(Board& b, const Move& m) {
 	if (b.epSquare == u.epSquare) b.epSquare = -1;
 
 	// Update piece-square tables
-	int psqt = psqtScore(fromType, psqtSquare(m.getTo(), b.turn), MG) - psqtScore(fromType, psqtSquare(m.getFrom(), b.turn), MG);
-	if (toPiece != EMPTY) psqt += psqtScore(toType, psqtSquare(m.getTo(), !b.turn), MG);
-	b.psqt += (b.turn == WHITE) ? psqt : -psqt;
+	int mgPSQT = psqtScore(fromType, psqtSquare(m.getTo(), b.turn), MG) - psqtScore(fromType, psqtSquare(m.getFrom(), b.turn), MG);
+	if (toPiece != EMPTY) mgPSQT += psqtScore(toType, psqtSquare(m.getTo(), !b.turn), MG);
+	b.psqt[MG] += (b.turn == WHITE) ? mgPSQT : -mgPSQT;
+
+	int egPSQT = psqtScore(fromType, psqtSquare(m.getTo(), b.turn), EG) - psqtScore(fromType, psqtSquare(m.getFrom(), b.turn), EG);
+	if (toPiece != EMPTY) egPSQT += psqtScore(toType, psqtSquare(m.getTo(), !b.turn), EG);
+	b.psqt[EG] += (b.turn == WHITE) ? egPSQT : -egPSQT;
+
 
 	updateCastleRights(b, m);
 
@@ -86,7 +91,7 @@ Undo makeEnPassantMove(Board& b, const Move& m) {
 	assert(b.squares[m.getTo()] == EMPTY);
 	assert(b.squares[epSquare] == epPiece);
 
-	Undo u(b.key, b.epSquare, b.castlingRights, b.fiftyMove, b.psqt, epPiece);
+	Undo u(b.key, b.epSquare, b.castlingRights, b.fiftyMove, b.psqt[MG], b.psqt[EG], epPiece);
 
 	b.fiftyMove = 0;
 
@@ -105,8 +110,11 @@ Undo makeEnPassantMove(Board& b, const Move& m) {
 	b.key ^= pieceKeys[fromPiece][m.getFrom()] ^ pieceKeys[fromPiece][m.getTo()] ^ pieceKeys[epPiece][epSquare];
 	b.key ^= turnKey;
 
-	int psqt = psqtScore(PAWN, psqtSquare(m.getTo(), b.turn), MG) - psqtScore(PAWN, psqtSquare(m.getFrom(), b.turn), MG) + psqtScore(PAWN, psqtSquare(epSquare, !b.turn), MG);
-	b.psqt += (b.turn == WHITE) ? psqt : -psqt;
+	int mgPSQT = psqtScore(PAWN, psqtSquare(m.getTo(), b.turn), MG) - psqtScore(PAWN, psqtSquare(m.getFrom(), b.turn), MG) + psqtScore(PAWN, psqtSquare(epSquare, !b.turn), MG);
+	b.psqt[MG] += (b.turn == WHITE) ? mgPSQT : -mgPSQT;
+
+	int egPSQT = psqtScore(PAWN, psqtSquare(m.getTo(), b.turn), EG) - psqtScore(PAWN, psqtSquare(m.getFrom(), b.turn), EG) + psqtScore(PAWN, psqtSquare(epSquare, !b.turn), EG);
+	b.psqt[EG] += (b.turn == WHITE) ? egPSQT : -egPSQT;
 
 	return u;
 }
@@ -138,7 +146,7 @@ Undo makePromotionMove(Board& b, const Move& m) {
 	assert(promotionPiece != EMPTY);
 
 	// Save board state in undo object
-	Undo u(b.key, b.epSquare, b.castlingRights, b.fiftyMove, b.psqt, toPiece);
+	Undo u(b.key, b.epSquare, b.castlingRights, b.fiftyMove, b.psqt[MG], b.psqt[EG], toPiece);
 
 	b.fiftyMove = 0;
 
@@ -158,9 +166,13 @@ Undo makePromotionMove(Board& b, const Move& m) {
 	if (toPiece != EMPTY) b.key ^= pieceKeys[toPiece][m.getTo()];
 	b.key ^= turnKey;
 
-	int psqt = psqtScore(pieceType(promotionPiece), psqtSquare(m.getTo(), b.turn), MG) - psqtScore(PAWN, psqtSquare(m.getFrom(), b.turn), MG);
-	if (toPiece != EMPTY) psqt += psqtScore(toType, psqtSquare(m.getTo(), !b.turn), MG);
-	b.psqt += (b.turn == WHITE) ? psqt : -psqt;
+	int mgPSQT = psqtScore(pieceType(promotionPiece), psqtSquare(m.getTo(), b.turn), MG) - psqtScore(PAWN, psqtSquare(m.getFrom(), b.turn), MG);
+	if (toPiece != EMPTY) mgPSQT += psqtScore(toType, psqtSquare(m.getTo(), !b.turn), MG);
+	b.psqt[MG] += (b.turn == WHITE) ? mgPSQT : -mgPSQT;
+
+	int egPSQT = psqtScore(pieceType(promotionPiece), psqtSquare(m.getTo(), b.turn), EG) - psqtScore(PAWN, psqtSquare(m.getFrom(), b.turn), EG);
+	if (toPiece != EMPTY) egPSQT += psqtScore(toType, psqtSquare(m.getTo(), !b.turn), EG);
+	b.psqt[EG] += (b.turn == WHITE) ? egPSQT : -egPSQT;
 
 	return u;
 }
@@ -177,7 +189,7 @@ Undo makeCastleMove(Board& b, const Move& m) {
 	assert(fromType == KING);
 
 	// Save board state in undo object
-	Undo u(b.key, b.epSquare, b.castlingRights, b.fiftyMove, b.psqt, EMPTY);
+	Undo u(b.key, b.epSquare, b.castlingRights, b.fiftyMove, b.psqt[MG], b.psqt[EG], EMPTY);
 
 	b.fiftyMove += 1;
 
@@ -197,8 +209,11 @@ Undo makeCastleMove(Board& b, const Move& m) {
 
 	updateCastleRights(b, m);
 
-	int psqt = psqtScore(ROOK, psqtSquare(toRook, b.turn), MG) - psqtScore(ROOK, psqtSquare(fromRook, b.turn), MG);
-	b.psqt += (b.turn == WHITE) ? psqt : -psqt;
+	int mgPSQT = psqtScore(ROOK, psqtSquare(toRook, b.turn), MG) - psqtScore(ROOK, psqtSquare(fromRook, b.turn), MG);
+	b.psqt[MG] += (b.turn == WHITE) ? mgPSQT : -mgPSQT;
+
+	int egPSQT = psqtScore(ROOK, psqtSquare(toRook, b.turn), EG) - psqtScore(ROOK, psqtSquare(fromRook, b.turn), EG);
+	b.psqt[EG] += (b.turn == WHITE) ? egPSQT : -egPSQT;
 
 	return u;
 }
@@ -208,7 +223,8 @@ void undoMove(Board& b, const Move& m, const Undo& u) {
 	b.key = u.key;
 	b.epSquare = u.epSquare;
 	b.castlingRights = u.castlingRights;
-	b.psqt = u.psqt;
+	b.psqt[MG] = u.psqt[MG];
+	b.psqt[EG] = u.psqt[EG];
 	b.fiftyMove = u.fiftyMove;
 	b.history[b.moveNum--] = 0ull;
 
@@ -275,7 +291,7 @@ void undoMove(Board& b, const Move& m, const Undo& u) {
 }
 
 Undo makeNullMove(Board& b) {
-	Undo u(b.key, b.epSquare, b.castlingRights, b.fiftyMove, b.psqt, EMPTY);
+	Undo u(b.key, b.epSquare, b.castlingRights, b.fiftyMove, b.psqt[MG], b.psqt[EG], EMPTY);
 	b.turn = !b.turn;
 	b.key ^= turnKey;
 	if (b.epSquare != -1) b.key ^= epKeys[b.epSquare % 8];

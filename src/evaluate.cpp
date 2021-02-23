@@ -13,15 +13,15 @@ int psqtScore(int piece, int sqr, int phase) {
 	case PAWN:
 		return pawnPSQT[sqr];
 	case KNIGHT:
-		return knightPSQT[sqr];
+		return knightPSQT[phase][sqr];
 	case BISHOP:
-		return bishopPSQT[sqr];
+		return bishopPSQT[phase][sqr];
 	case ROOK:
-		return rookPSQT[sqr];
+		return rookPSQT[phase][sqr];
 	case QUEEN:
-		return queenPSQT[sqr];
+		return queenPSQT[phase][sqr];
 	case KING:
-		return taperedScore(kingPSQT[sqr][MG], kingPSQT[sqr][EG], phase);
+		return kingPSQT[phase][sqr];
 	}
 }
 
@@ -41,14 +41,16 @@ int evaluate(const Board& b, int color) {
 
 	// Step 2a: Non-king piece-square tables
 	// A basic evaluation of the placement of pieces (e.g. knights are bad near corners)
-	eval += b.psqt;
+	eval += taperedScore(b.psqt[MG], b.psqt[EG], phase);
 
 	// Step 2b: King piece-square table
 	// In the middlegame, the king is best placed near the corners of the board
 	// In the endgame, the king is best placed in the middle of the board
 	int whiteKingSqr = lsb(b.pieces[KING] & b.colors[WHITE]);
 	int blackKingSqr = lsb(b.pieces[KING] & b.colors[BLACK]);
-	eval += psqtScore(KING, psqtSquare(whiteKingSqr, WHITE), phase) - psqtScore(KING, psqtSquare(blackKingSqr, BLACK), phase);
+	// int mgKingPSQT = psqtScore(KING, psqtSquare(whiteKingSqr, WHITE), MG) - psqtScore(KING, psqtSquare(blackKingSqr, BLACK), MG);
+	// int egKingPSQT = psqtScore(KING, psqtSquare(whiteKingSqr, WHITE), EG) - psqtScore(KING, psqtSquare(blackKingSqr, BLACK), EG);
+	// eval += taperedScore(mgKingPSQT, egKingPSQT, phase);
 
 	// King attack info
 	uint64_t whiteKingRing = kingRing[whiteKingSqr];

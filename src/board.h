@@ -13,7 +13,7 @@ struct Board {
 	int turn;
 	int epSquare;
 	int castlingRights;
-	int psqt;
+	int psqt[2];
 	int fiftyMove;
 };
 
@@ -23,22 +23,24 @@ struct Undo {
 		epSquare = -1;
 		castlingRights = 0;
 		fiftyMove = 0;
-		psqt = 0;
+		psqt[MG] = 0;
+		psqt[EG] = 0;
 		capturedPiece = EMPTY;
 	}
-	Undo(uint64_t keyParam, int epParam, int castleParam, int fiftyParam, int psqtParam, int capturedParam) {
+	Undo(uint64_t keyParam, int epParam, int castleParam, int fiftyParam, int psqtMGParam, int psqtEGParam, int capturedParam) {
 		key = keyParam;
 		epSquare = epParam;
 		castlingRights = castleParam;
 		fiftyMove = fiftyParam;
-		psqt = psqtParam;
+		psqt[MG] = psqtMGParam;
+		psqt[EG] = psqtEGParam;
 		capturedPiece = capturedParam;
 	}
 	uint64_t key;
 	int epSquare;
 	int castlingRights;
 	int fiftyMove;
-	int psqt;
+	int psqt[2];
 	int capturedPiece;
 };
 
