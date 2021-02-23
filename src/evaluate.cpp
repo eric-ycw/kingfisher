@@ -48,9 +48,6 @@ int evaluate(const Board& b, int color) {
 	// In the endgame, the king is best placed in the middle of the board
 	int whiteKingSqr = lsb(b.pieces[KING] & b.colors[WHITE]);
 	int blackKingSqr = lsb(b.pieces[KING] & b.colors[BLACK]);
-	// int mgKingPSQT = psqtScore(KING, psqtSquare(whiteKingSqr, WHITE), MG) - psqtScore(KING, psqtSquare(blackKingSqr, BLACK), MG);
-	// int egKingPSQT = psqtScore(KING, psqtSquare(whiteKingSqr, WHITE), EG) - psqtScore(KING, psqtSquare(blackKingSqr, BLACK), EG);
-	// eval += taperedScore(mgKingPSQT, egKingPSQT, phase);
 
 	// King attack info
 	uint64_t whiteKingRing = kingRing[whiteKingSqr];
