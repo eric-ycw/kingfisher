@@ -85,10 +85,11 @@ void parseFen(Board& b, std::string fen) {
 					setSquare(b, j, sqr);
 					int color = pieceColor(j);
 					int type = pieceType(j);
-					if (type != KING) {
-						int score = psqtScore(type, psqtSquare(sqr, color), MG);
-						b.psqt += (color == WHITE) ? score : -score;
-					}
+					int mgScore = psqtScore(type, psqtSquare(sqr, color), MG);
+					b.psqt[MG] += (color == WHITE) ? mgScore : -mgScore;
+
+					int egScore = psqtScore(type, psqtSquare(sqr, color), EG);
+					b.psqt[EG] += (color == WHITE) ? egScore : -egScore;
 					sqr++;
 					break;
 				}
@@ -217,7 +218,7 @@ void printBoard(const Board& b) {
 	std::cout << "Castling rights: " << b.castlingRights << "\n";
 	std::cout << "En passant square: " << b.epSquare << "\n";
 	std::cout << "Fifty move counter: " << b.fiftyMove << "\n";
-	std::cout << "Piece-square table score: " << b.psqt << "\n";
+	std::cout << "Piece-square table score: " << taperedScore(b.psqt[MG], b.psqt[EG], getPhase(b)) << "\n";
 	std::cout << "Evaluation: " << evaluate(b, WHITE) << "\n";
 	std::cout << "Phase: " << getPhase(b) << "\n";
 }
