@@ -155,7 +155,7 @@ void genKingMoves(const Board& b, std::vector<uint16_t>& moves, bool noisyOnly) 
 
 std::vector<uint16_t> genAllMoves(const Board& b) {
 	std::vector<uint16_t> moves;
-	moves.reserve(35);
+	moves.reserve(45);
 	genPawnMoves(b, moves, false);
 	genKnightMoves(b, moves, false);
 	genBishopMoves(b, moves, false);

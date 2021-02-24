@@ -104,26 +104,26 @@ void storePTT(const uint64_t& key, int depth, int nodes) {
 }
 
 int probeQHash(const uint64_t& key) {
-	auto& entry = qhash[key & qHashMaxEntry];
-	return (entry.key == key) ? entry.eval : NO_VALUE;
+	auto& entry = qhash[(uint32_t)key & qHashMaxEntry];
+	return (entry.key == (key >> 32)) ? entry.eval : NO_VALUE;
 }
 
 void storeQHash(const uint64_t& key, const int& eval) {
-	auto& entry = qhash[key & qHashMaxEntry];
+	auto& entry = qhash[(uint32_t)key & qHashMaxEntry];
 	// Always replace
-	entry.key = key;
+	entry.key = (key >> 32);
 	entry.eval = eval;
 }
 
 int probePawnHash(const uint64_t& key, const int& color) {
-	auto& entry = phash[key & pHashMaxEntry];
-	return (entry.key == key && entry.color == color) ? entry.staticEval : NO_VALUE;
+	auto& entry = phash[(uint32_t)key & pHashMaxEntry];
+	return (entry.key == (key >> 32) && entry.color == color) ? entry.staticEval : NO_VALUE;
 }
 
 void storePawnHash(const uint64_t& key, const int& staticEval, const int& color) {
-	auto& entry = phash[key & pHashMaxEntry];
+	auto& entry = phash[(uint32_t)key & pHashMaxEntry];
 	// Always replace
-	entry.key = key;
+	entry.key = (key >> 32);
 	entry.staticEval = staticEval;
 	entry.color = color;
 }
