@@ -161,7 +161,7 @@ static constexpr int historyMax = historyMultiplier * historyDivisor;
 static constexpr int historyMaxDepth = 8;
 static int historyMoves[2][6][SQUARE_NUM];
 
-static constexpr int nullMoveBaseR = 2;
+static constexpr int nullMoveBaseR = 3;
 static constexpr int nullMoveMinDepth = 3;
 
 static constexpr int futilityMaxDepth = 3;

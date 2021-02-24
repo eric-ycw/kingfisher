@@ -184,7 +184,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	// Step 6: Null move pruning
 	// If we don't make a move, and a reduced search still causes a beta cutoff, we do a cutoff immediately
 	// We do not use null move pruning in pawn endgames as it would fail in zugzwang
-	if (allowNull && depth >= nullMoveMinDepth && !isInCheck && getPhase(b) != 0) {
+	if (!isPV && allowNull && depth >= nullMoveMinDepth && !isInCheck && getPhase(b) != 0) {
 		auto u = makeNullMove(b);
 		int nullMoveR = nullMoveBaseR + depth / 6;
 		nullMoveR = std::min(nullMoveR, 4);
