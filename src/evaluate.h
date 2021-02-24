@@ -129,7 +129,7 @@ static constexpr int doubledPawnPenalty = 48;
 static constexpr int isolatedPawnPenalty = 14;
 
 static constexpr int passedBonus[7][2] = {
-	{0, 0}, {0, 20}, {5, 40}, {15, 60}, {50, 100}, {120, 180}, {250, 360}
+	{0, 0}, {0, 20}, {5, 40}, {15, 60}, {50, 100}, {120, 180}, {250, 280}
 };
 static constexpr int passedBlockReduction = 2;
 static constexpr int passedBlockedBonus[7][2] = {
