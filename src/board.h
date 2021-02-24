@@ -63,8 +63,8 @@ bool drawnByRepetition(const Board& b);
 void parseFen(Board& b, std::string fen);
 
 std::string toNotation(int sqr);
-std::string toNotation(const Move& m);
-Move toMove(const Board& b, const std::string& notation);
+std::string toNotation(const uint16_t& m);
+uint16_t toMove(const Board& b, const std::string& notation);
 
 void printBoard(const Board& b);
 

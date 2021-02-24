@@ -82,7 +82,6 @@ enum Score {
 // Forward declarations
 typedef struct Board Board;
 typedef struct Undo Undo;
-typedef struct Move Move;
 typedef struct SearchInfo SearchInfo;
 typedef struct TTInfo TTInfo;
 

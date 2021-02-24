@@ -17,7 +17,7 @@ struct TTInfo {
 	};
 	int depth, flag, ply, age = 0;
 	int score, eval = NO_VALUE;
-	Move move = NO_MOVE;
+	uint16_t move = 0;
 	uint64_t key = 0;
 };
 
@@ -52,8 +52,8 @@ static constexpr int pHashMaxEntry = 0xfff;
 extern pHashInfo phash[pHashMaxEntry];
 
 int probeTT(const uint64_t& key, const int& depth, const int& alpha, const int& beta, const int& ply, SearchInfo& si, int& ttEval);
-Move probeHashMove(const uint64_t& key);
-void storeTT(const uint64_t& key, const int& depth, const int& score, const int& flag, const int& eval, const int& ply, const Move& m);
+uint16_t probeHashMove(const uint64_t& key);
+void storeTT(const uint64_t& key, const int& depth, const int& score, const int& flag, const int& eval, const int& ply, const uint16_t& m);
 
 int probePTT(const uint64_t& key, int depth);
 void storePTT(const uint64_t& key, int depth, int nodes);

@@ -12,8 +12,8 @@
 void initSearch(SearchInfo& si) {
 	// Reset killers
 	for (int i = 0; i <= MAX_PLY; ++i) {
-		killers[0][i] = NO_MOVE;
-		killers[1][i] = NO_MOVE;
+		killers[0][i] = 0;
+		killers[1][i] = 0;
 	}
 
 	// Reset history scores
@@ -42,7 +42,7 @@ void updateHistory(int& entry, int delta) {
 	entry += historyMultiplier * delta - entry * abs(delta) / historyDivisor;
 }
 
-int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& hashMove) {
+int scoreMove(const Board& b, const uint16_t& m, int ply, int phase, const uint16_t& hashMove) {
 	
 	// We order our moves before we search them in order to maximize the chance of causing a beta-cutoff in the first few moves searched
 
@@ -53,9 +53,9 @@ int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& has
 	// 5. History moves
 	// 6. Bad captures (score = INT_MIN + 1)
 
-	const int from = m.getFrom();
-	const int to = m.getTo();
-	const int flag = m.getFlag();
+	const int from = moveFrom(m);
+	const int to = moveTo(m);
+	const int flag = moveFlag(m);
 
 	// Hash move
 	if (m == hashMove) return hashMoveBonus;
@@ -78,7 +78,7 @@ int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& has
 	return (-historyMax - 5) + historyScore;
 }
 
-std::vector<ScoredMove> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove) {
+std::vector<ScoredMove> scoreMoves(const Board& b, const std::vector<uint16_t>& moves, int ply, const uint16_t& hashMove) {
 	int phase = getPhase(b);
 	int size = moves.size();
 	std::vector<ScoredMove> scoredMoves(size);
@@ -90,22 +90,22 @@ std::vector<ScoredMove> scoreMoves(const Board& b, const std::vector<Move>& move
 	return scoredMoves;
 }
 
-int scoreNoisyMove(const Board& b, const Move& m) {
-	int fromType = pieceType(b.squares[m.getFrom()]);
+int scoreNoisyMove(const Board& b, const uint16_t& m) {
+	int fromType = pieceType(b.squares[moveFrom(m)]);
 	if (fromType == BISHOP) fromType = KNIGHT; // We treat knight and bishop as equals
-	const int toType = (m.getFlag() == EP_MOVE) ? PAWN : pieceType(b.squares[m.getTo()]);
+	const int toType = (moveFlag(m) == EP_MOVE) ? PAWN : pieceType(b.squares[moveTo(m)]);
 
 	// MVV-LVA
 	int score = SEEValues[toType] - fromType;
 	// Promotion bonus
-	if (m.getFlag() >= PROMOTION_KNIGHT) {
-		score += SEEValues[m.getFlag() - 2];
+	if (moveFlag(m) >= PROMOTION_KNIGHT) {
+		score += SEEValues[moveFlag(m) - 2];
 	}
 
 	return score * 100;
 }
 
-std::vector<ScoredMove> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves) {
+std::vector<ScoredMove> scoreNoisyMoves(const Board& b, const std::vector<uint16_t>& moves) {
 	int size = moves.size();
 	std::vector<ScoredMove> scoredMoves(size);
 	for (int i = 0; i < size; ++i) {
@@ -115,7 +115,7 @@ std::vector<ScoredMove> scoreNoisyMoves(const Board& b, const std::vector<Move>&
 	return scoredMoves;
 }
 
-int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[MAX_PLY], bool allowNull = true) {
+int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, uint16_t (&ppv)[MAX_PLY], bool allowNull = true) {
 	bool isRoot = (!ply);
 	bool isPV = (alpha != beta - 1);
 	bool nearMate = (alpha <= MATED_IN_MAX || alpha >= MATE_IN_MAX || beta <= MATED_IN_MAX || beta >= MATE_IN_MAX);
@@ -138,8 +138,8 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	}
 
 	// Initialize new PV
-	Move pv[MAX_PLY];
-	for (auto& p : pv) p = NO_MOVE;
+	uint16_t pv[MAX_PLY];
+	for (auto& p : pv) p = 0;
 
 	si.nodes++;
 
@@ -179,7 +179,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 
 	int score;
 	int TTFlag = TT_ALPHA;
-	Move bestMove = NO_MOVE;
+	uint16_t bestMove = 0;
 
 	// Step 6: Null move pruning
 	// If we don't make a move, and a reduced search still causes a beta cutoff, we do a cutoff immediately
@@ -201,21 +201,21 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	int movesSearched = 0;
 	int movesTried = 0;
 	std::vector<ScoredMove> moves;
-	Move hashMove = probeHashMove(b.key);
+	uint16_t hashMove = probeHashMove(b.key);
 
 
 	while (stage != NO_MOVES_LEFT) {
 		// Step 7: We pick our next move from an ordered list of moves
-		Move m = pickNextMove(b, hashMove, stage, moves, ply, movesTried);
-		if (m == NO_MOVE) {
+		uint16_t m = pickNextMove(b, hashMove, stage, moves, ply, movesTried);
+		if (!m) {
 			stage = NO_MOVES_LEFT;
 			break;
 		}
 
 		// Move info
-		const int from = m.getFrom();
-		const int to = m.getTo();
-		const int flag = m.getFlag();
+		const int from = moveFrom(m);
+		const int to = moveTo(m);
+		const int flag = moveFlag(m);
 		const int historyScore = historyMoves[b.turn][pieceType(b.squares[from])][to];
 
 		// Move flags
@@ -326,7 +326,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 			// Copy PV from child nodes
 			ppv[ply] = m;
 			for (int i = ply + 1; i < MAX_PLY; ++i) {
-				if (pv[i] == NO_MOVE) break;
+				if (!pv[i]) break;
 				ppv[i] = pv[i];
 			}
 		} else {
@@ -356,7 +356,7 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Mo
 	return alpha;
 }
 
-int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[MAX_PLY]) {
+int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, uint16_t (&ppv)[MAX_PLY]) {
 	if (ply > si.seldepth) si.seldepth = ply;
 
 	si.qnodes++;
@@ -392,17 +392,17 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 	std::vector<ScoredMove> scoredNoisyMoves = scoreNoisyMoves(b, noisyMoves);
 	std::sort(scoredNoisyMoves.begin(), scoredNoisyMoves.end(), [](const auto& a, const auto& b) { return a.score > b.score; });
 
-	Move pv[MAX_PLY];
-	for (auto& m : pv) m = NO_MOVE;
+	uint16_t pv[MAX_PLY];
+	for (auto& m : pv) m = 0;
 
 	int movesSearched = 0;
 
 	for (int i = 0, size = scoredNoisyMoves.size(); i < size; ++i) {
-		Move m = scoredNoisyMoves[i].m;
+		uint16_t m = scoredNoisyMoves[i].m;
 
 		// Step 5: Delta pruning
 		// We skip this move if the gain from making this capture plus a safety margin is still not enough to raise alpha
-		if (m.getFlag() < PROMOTION_KNIGHT && eval + deltaMargin + pieceValues[pieceType(b.squares[m.getTo()])][MG] < alpha) continue;
+		if (moveFlag(m) < PROMOTION_KNIGHT && eval + deltaMargin + pieceValues[pieceType(b.squares[moveTo(m)])][MG] < alpha) continue;
 
 		// Step 6: Negative SEE pruning
 		// We skip this move if we would lose the exchange that would ensue
@@ -430,7 +430,7 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 
 			ppv[ply] = m;
 			for (int i = ply + 1; i < MAX_PLY; ++i) {
-				if (pv[i] == NO_MOVE) break;
+				if (!pv[i]) break;
 				ppv[i] = pv[i];
 			}
 		}
@@ -438,12 +438,12 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[
 	return alpha;
 }
 
-int staticExchangeEvaluation(const Board& b, const Move& m, int threshold) {
+int staticExchangeEvaluation(const Board& b, const uint16_t& m, int threshold) {
 
-	int from = m.getFrom();
-	int to = m.getTo();
+	int from = moveFrom(m);
+	int to = moveTo(m);
 
-	int nextVictim = (m.getFlag() >= PROMOTION_KNIGHT) ? m.getFlag() - 2 : pieceType(b.squares[from]);
+	int nextVictim = (moveFlag(m) >= PROMOTION_KNIGHT) ? moveFlag(m) - 2 : pieceType(b.squares[from]);
 
 	int seeVal = SEEMoveVal(b, m) - threshold;
 	if (seeVal < 0) return 0;
@@ -458,7 +458,7 @@ int staticExchangeEvaluation(const Board& b, const Move& m, int threshold) {
 
 	uint64_t occupied = ~b.colors[NO_COLOR];
 	occupied ^= (1ull << from) ^ (1ull << to);
-	if (m.getFlag() == EP_MOVE) occupied ^= (1ull << (b.epSquare - 8 + (b.turn << 4)));
+	if (moveFlag(m) == EP_MOVE) occupied ^= (1ull << (b.epSquare - 8 + (b.turn << 4)));
 
 	int side = !b.turn;
 	uint64_t allAttackers = squareAttackers(b, !side, to) | squareAttackers(b, side, to) & occupied;
@@ -495,11 +495,11 @@ int staticExchangeEvaluation(const Board& b, const Move& m, int threshold) {
 	return b.turn != side;
 }
 
-int SEEMoveVal(const Board& b, const Move& m) {
-	int piece = pieceType(b.squares[m.getTo()]);
+int SEEMoveVal(const Board& b, const uint16_t& m) {
+	int piece = pieceType(b.squares[moveTo(m)]);
 	int val = (piece != EMPTY) ? SEEValues[piece] : 0;
-	if (m.getFlag() >= PROMOTION_KNIGHT) val += SEEValues[pieceType(m.getFlag() - 2)] - SEEValues[PAWN];
-	if (m.getFlag() == EP_MOVE) val += SEEValues[PAWN];
+	if (moveFlag(m) >= PROMOTION_KNIGHT) val += SEEValues[pieceType(moveFlag(m) - 2)] - SEEValues[PAWN];
+	if (moveFlag(m) == EP_MOVE) val += SEEValues[PAWN];
 	return val;
 }
 
@@ -520,7 +520,7 @@ int greatestTacticalGain(const Board& b) {
 
 void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit) {
 	SearchInfo searchCache;
-	Move bestMove = NO_MOVE;
+	uint16_t bestMove = 0;
 	initSearch(si);
 	si.initTime(timeLimit);
 

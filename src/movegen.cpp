@@ -6,29 +6,29 @@
 #include "movegen.h"
 #include "types.h"
 
-void addPawnMoves(std::vector<Move>& moves, uint64_t bb, const int shift) {
+void addPawnMoves(std::vector<uint16_t>& moves, uint64_t bb, const int shift) {
 	while (bb) {
 		int sqr = popBit(bb);
 		bool isPromotion = (1ull << sqr & (rank1Mask | rank8Mask));
 		if (isPromotion) {
-			moves.emplace_back(sqr - shift, sqr, PROMOTION_QUEEN);
-			moves.emplace_back(sqr - shift, sqr, PROMOTION_ROOK);
-			moves.emplace_back(sqr - shift, sqr, PROMOTION_BISHOP);
-			moves.emplace_back(sqr - shift, sqr, PROMOTION_KNIGHT);
+			moves.push_back(createMove(sqr - shift, sqr, PROMOTION_QUEEN));
+			moves.push_back(createMove(sqr - shift, sqr, PROMOTION_ROOK));
+			moves.push_back(createMove(sqr - shift, sqr, PROMOTION_BISHOP));
+			moves.push_back(createMove(sqr - shift, sqr, PROMOTION_KNIGHT));
 		}
 		else {
-			moves.emplace_back(sqr - shift, sqr, NORMAL_MOVE);
+			moves.push_back(createMove(sqr - shift, sqr, NORMAL_MOVE));
 		}
 	}
 }
 
-void addPieceMoves(std::vector<Move>& moves, uint64_t bb, const int from) {
+void addPieceMoves(std::vector<uint16_t>& moves, uint64_t bb, const int from) {
 	while (bb) {
-		moves.emplace_back(from, popBit(bb), NORMAL_MOVE);
+		moves.push_back(createMove(from, popBit(bb), NORMAL_MOVE));
 	}
 }
 
-void genPawnMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
+void genPawnMoves(const Board& b, std::vector<uint16_t>& moves, bool noisyOnly) {
 	const int forward = (b.turn == WHITE) ? N : S;
 	uint64_t pawns = b.pieces[PAWN] & b.colors[b.turn];
 
@@ -49,11 +49,11 @@ void genPawnMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 
 	uint64_t ep = (b.epSquare == -1) ? 0ull : pawnAttacks[b.epSquare][!b.turn] & pawns;
 	while (ep) {
-		moves.emplace_back(popBit(ep), b.epSquare, EP_MOVE);
+		moves.push_back(createMove(popBit(ep), b.epSquare, EP_MOVE));
 	}
 }
 
-void genKnightMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
+void genKnightMoves(const Board& b, std::vector<uint16_t>& moves, bool noisyOnly) {
 	uint64_t knights = b.pieces[KNIGHT] & b.colors[b.turn];
 	while (knights) {
 		int sqr = popBit(knights);
@@ -63,7 +63,7 @@ void genKnightMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 	}
 }
 
-void genBishopMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
+void genBishopMoves(const Board& b, std::vector<uint16_t>& moves, bool noisyOnly) {
 	uint64_t bishops = b.pieces[BISHOP] & b.colors[b.turn];
 	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (bishops) {
@@ -75,7 +75,7 @@ void genBishopMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 	}
 }
 
-void genRookMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
+void genRookMoves(const Board& b, std::vector<uint16_t>& moves, bool noisyOnly) {
 	uint64_t rooks = b.pieces[ROOK] & b.colors[b.turn];
 	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (rooks) {
@@ -87,7 +87,7 @@ void genRookMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 	}
 }
 
-void genQueenMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
+void genQueenMoves(const Board& b, std::vector<uint16_t>& moves, bool noisyOnly) {
 	uint64_t queens = b.pieces[QUEEN] & b.colors[b.turn];
 	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (queens) {
@@ -100,7 +100,7 @@ void genQueenMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 	}
 }
 
-void genKingMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
+void genKingMoves(const Board& b, std::vector<uint16_t>& moves, bool noisyOnly) {
 	uint64_t king = b.pieces[KING] & b.colors[b.turn];
 	while (king) {
 		int sqr = popBit(king);
@@ -117,7 +117,7 @@ void genKingMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 			(!squareIsAttacked(b, WHITE, F1)) &&
 			(!squareIsAttacked(b, WHITE, G1))) 
 		{
-			moves.emplace_back(E1, G1, CASTLE_MOVE);
+			moves.push_back(createMove(E1, G1, CASTLE_MOVE));
 		}
 		if ((b.castlingRights & WQ_CASTLING) &&
 			(b.squares[D1] == EMPTY) &&
@@ -127,7 +127,7 @@ void genKingMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 			(!squareIsAttacked(b, WHITE, D1)) &&
 			(!squareIsAttacked(b, WHITE, C1)))
 		{
-			moves.emplace_back(E1, C1, CASTLE_MOVE);
+			moves.push_back(createMove(E1, C1, CASTLE_MOVE));
 		}
 	}
 	else if (b.turn == BLACK && b.squares[E8] == B_KING) {
@@ -138,7 +138,7 @@ void genKingMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 			(!squareIsAttacked(b, BLACK, F8)) &&
 			(!squareIsAttacked(b, BLACK, G8)))
 		{
-			moves.emplace_back(E8, G8, CASTLE_MOVE);
+			moves.push_back(createMove(E8, G8, CASTLE_MOVE));
 		}
 		if ((b.castlingRights & BQ_CASTLING) &&
 			(b.squares[D8] == EMPTY) &&
@@ -148,13 +148,13 @@ void genKingMoves(const Board& b, std::vector<Move>& moves, bool noisyOnly) {
 			(!squareIsAttacked(b, BLACK, D8)) &&
 			(!squareIsAttacked(b, BLACK, C8)))
 		{
-			moves.emplace_back(E8, C8, CASTLE_MOVE);
+			moves.push_back(createMove(E8, C8, CASTLE_MOVE));
 		}
 	}
 }
 
-std::vector<Move> genAllMoves(const Board& b) {
-	std::vector<Move> moves;
+std::vector<uint16_t> genAllMoves(const Board& b) {
+	std::vector<uint16_t> moves;
 	moves.reserve(35);
 	genPawnMoves(b, moves, false);
 	genKnightMoves(b, moves, false);
@@ -165,8 +165,8 @@ std::vector<Move> genAllMoves(const Board& b) {
 	return moves;
 }
 
-std::vector<Move> genNoisyMoves(const Board& b) {
-	std::vector<Move> noisyMoves;
+std::vector<uint16_t> genNoisyMoves(const Board& b) {
+	std::vector<uint16_t> noisyMoves;
 	noisyMoves.reserve(10);
 	genPawnMoves(b, noisyMoves, true);
 	genKnightMoves(b, noisyMoves, true);

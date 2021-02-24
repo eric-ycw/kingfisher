@@ -5,11 +5,11 @@
 #include "move.h"
 #include "types.h"
 
-Undo makeMove(Board& b, const Move& m) {
-	if (m == NO_MOVE) return Undo();
-	assert(validSquare(m.getFrom()) && validSquare(m.getTo()));
+Undo makeMove(Board& b, const uint16_t& m) {
+	if (!m) return Undo();
+	assert(validSquare(moveFrom(m)) && validSquare(moveTo(m)));
 	Undo u;
-	switch (m.getFlag()) {
+	switch (moveFlag(m)) {
 	default:  // Promotion
 		u = makePromotionMove(b, m);
 		break;
@@ -29,9 +29,9 @@ Undo makeMove(Board& b, const Move& m) {
 	return u;
 }
 
-Undo makeNormalMove(Board& b, const Move& m) {
-	const int fromPiece = b.squares[m.getFrom()];
-	const int toPiece = b.squares[m.getTo()];
+Undo makeNormalMove(Board& b, const uint16_t& m) {
+	const int fromPiece = b.squares[moveFrom(m)];
+	const int toPiece = b.squares[moveTo(m)];
 
 	assert(fromPiece != EMPTY);
 
@@ -43,37 +43,37 @@ Undo makeNormalMove(Board& b, const Move& m) {
 
 	b.fiftyMove = (fromType == PAWN || toPiece != EMPTY) ? 0 : b.fiftyMove + 1;
 
-	b.squares[m.getFrom()] = EMPTY;
-	b.squares[m.getTo()] = fromPiece;
+	b.squares[moveFrom(m)] = EMPTY;
+	b.squares[moveTo(m)] = fromPiece;
 
-	b.pieces[fromType] ^= (1ull << m.getFrom()) ^ (1ull << m.getTo());
-	b.colors[b.turn] ^= (1ull << m.getFrom()) ^ (1ull << m.getTo());
+	b.pieces[fromType] ^= (1ull << moveFrom(m)) ^ (1ull << moveTo(m));
+	b.colors[b.turn] ^= (1ull << moveFrom(m)) ^ (1ull << moveTo(m));
 	if (toPiece != EMPTY) {
-		b.pieces[toType] ^= (1ull << m.getTo());
-		b.colors[!b.turn] ^= (1ull << m.getTo());
+		b.pieces[toType] ^= (1ull << moveTo(m));
+		b.colors[!b.turn] ^= (1ull << moveTo(m));
 	}
 	b.colors[NO_COLOR] = ~(b.colors[b.turn] | b.colors[!b.turn]);
 
-	b.key ^= pieceKeys[fromPiece][m.getFrom()] ^ pieceKeys[fromPiece][m.getTo()];
-	if (toPiece != EMPTY) b.key ^= pieceKeys[toPiece][m.getTo()];
+	b.key ^= pieceKeys[fromPiece][moveFrom(m)] ^ pieceKeys[fromPiece][moveTo(m)];
+	if (toPiece != EMPTY) b.key ^= pieceKeys[toPiece][moveTo(m)];
 	b.key ^= turnKey;
 
 	// Update en passant square
-	if (fromType == PAWN && (m.getFrom() ^ m.getTo()) == 16) {
+	if (fromType == PAWN && (moveFrom(m) ^ moveTo(m)) == 16) {
 		if (b.pieces[PAWN] & b.colors[!b.turn] & ((b.turn) ? rank5Mask : rank4Mask)) {
-			b.epSquare = (b.turn) ? m.getFrom() + S : m.getFrom() + N;
+			b.epSquare = (b.turn) ? moveFrom(m) + S : moveFrom(m) + N;
 			b.key ^= epKeys[b.epSquare % 8];
 		}
 	}
 	if (b.epSquare == u.epSquare) b.epSquare = -1;
 
 	// Update piece-square tables
-	int mgPSQT = psqtScore(fromType, psqtSquare(m.getTo(), b.turn), MG) - psqtScore(fromType, psqtSquare(m.getFrom(), b.turn), MG);
-	if (toPiece != EMPTY) mgPSQT += psqtScore(toType, psqtSquare(m.getTo(), !b.turn), MG);
+	int mgPSQT = psqtScore(fromType, psqtSquare(moveTo(m), b.turn), MG) - psqtScore(fromType, psqtSquare(moveFrom(m), b.turn), MG);
+	if (toPiece != EMPTY) mgPSQT += psqtScore(toType, psqtSquare(moveTo(m), !b.turn), MG);
 	b.psqt[MG] += (b.turn == WHITE) ? mgPSQT : -mgPSQT;
 
-	int egPSQT = psqtScore(fromType, psqtSquare(m.getTo(), b.turn), EG) - psqtScore(fromType, psqtSquare(m.getFrom(), b.turn), EG);
-	if (toPiece != EMPTY) egPSQT += psqtScore(toType, psqtSquare(m.getTo(), !b.turn), EG);
+	int egPSQT = psqtScore(fromType, psqtSquare(moveTo(m), b.turn), EG) - psqtScore(fromType, psqtSquare(moveFrom(m), b.turn), EG);
+	if (toPiece != EMPTY) egPSQT += psqtScore(toType, psqtSquare(moveTo(m), !b.turn), EG);
 	b.psqt[EG] += (b.turn == WHITE) ? egPSQT : -egPSQT;
 
 
@@ -82,52 +82,52 @@ Undo makeNormalMove(Board& b, const Move& m) {
 	return u;
 }
 
-Undo makeEnPassantMove(Board& b, const Move& m) {
-	const int fromPiece = b.squares[m.getFrom()];
+Undo makeEnPassantMove(Board& b, const uint16_t& m) {
+	const int fromPiece = b.squares[moveFrom(m)];
 	const int epPiece = (b.turn) ? W_PAWN : B_PAWN;
 	const int epSquare = b.epSquare - 8 + (b.turn << 4);
 
 	assert(pieceType(fromPiece) == PAWN);
-	assert(b.squares[m.getTo()] == EMPTY);
+	assert(b.squares[moveTo(m)] == EMPTY);
 	assert(b.squares[epSquare] == epPiece);
 
 	Undo u(b.key, b.epSquare, b.castlingRights, b.fiftyMove, b.psqt[MG], b.psqt[EG], epPiece);
 
 	b.fiftyMove = 0;
 
-	b.squares[m.getFrom()] = EMPTY;
-	b.squares[m.getTo()] = fromPiece;
+	b.squares[moveFrom(m)] = EMPTY;
+	b.squares[moveTo(m)] = fromPiece;
 	b.squares[epSquare] = EMPTY;
 
-	b.pieces[PAWN] ^= (1ull << m.getFrom()) ^ (1ull << m.getTo());
-	b.colors[b.turn] ^= (1ull << m.getFrom()) ^ (1ull << m.getTo());
+	b.pieces[PAWN] ^= (1ull << moveFrom(m)) ^ (1ull << moveTo(m));
+	b.colors[b.turn] ^= (1ull << moveFrom(m)) ^ (1ull << moveTo(m));
 
 	b.pieces[PAWN] ^= (1ull << epSquare);
 	b.colors[!b.turn] ^= (1ull << epSquare);
 
 	b.colors[NO_COLOR] = ~(b.colors[b.turn] | b.colors[!b.turn]);
 
-	b.key ^= pieceKeys[fromPiece][m.getFrom()] ^ pieceKeys[fromPiece][m.getTo()] ^ pieceKeys[epPiece][epSquare];
+	b.key ^= pieceKeys[fromPiece][moveFrom(m)] ^ pieceKeys[fromPiece][moveTo(m)] ^ pieceKeys[epPiece][epSquare];
 	b.key ^= turnKey;
 
-	int mgPSQT = psqtScore(PAWN, psqtSquare(m.getTo(), b.turn), MG) - psqtScore(PAWN, psqtSquare(m.getFrom(), b.turn), MG) + psqtScore(PAWN, psqtSquare(epSquare, !b.turn), MG);
+	int mgPSQT = psqtScore(PAWN, psqtSquare(moveTo(m), b.turn), MG) - psqtScore(PAWN, psqtSquare(moveFrom(m), b.turn), MG) + psqtScore(PAWN, psqtSquare(epSquare, !b.turn), MG);
 	b.psqt[MG] += (b.turn == WHITE) ? mgPSQT : -mgPSQT;
 
-	int egPSQT = psqtScore(PAWN, psqtSquare(m.getTo(), b.turn), EG) - psqtScore(PAWN, psqtSquare(m.getFrom(), b.turn), EG) + psqtScore(PAWN, psqtSquare(epSquare, !b.turn), EG);
+	int egPSQT = psqtScore(PAWN, psqtSquare(moveTo(m), b.turn), EG) - psqtScore(PAWN, psqtSquare(moveFrom(m), b.turn), EG) + psqtScore(PAWN, psqtSquare(epSquare, !b.turn), EG);
 	b.psqt[EG] += (b.turn == WHITE) ? egPSQT : -egPSQT;
 
 	return u;
 }
 
-Undo makePromotionMove(Board& b, const Move& m) {
-	const int fromPiece = b.squares[m.getFrom()];
-	const int toPiece = b.squares[m.getTo()];
+Undo makePromotionMove(Board& b, const uint16_t& m) {
+	const int fromPiece = b.squares[moveFrom(m)];
+	const int toPiece = b.squares[moveTo(m)];
 
 	const int fromType = pieceType(fromPiece);
 	const int toType = pieceType(toPiece);
 
 	int promotionPiece = EMPTY;
-	switch (m.getFlag()) {
+	switch (moveFlag(m)) {
 	case PROMOTION_KNIGHT:
 		promotionPiece = makePiece(KNIGHT, b.turn);
 		break;
@@ -150,39 +150,39 @@ Undo makePromotionMove(Board& b, const Move& m) {
 
 	b.fiftyMove = 0;
 
-	b.squares[m.getFrom()] = EMPTY;
-	b.squares[m.getTo()] = promotionPiece;
+	b.squares[moveFrom(m)] = EMPTY;
+	b.squares[moveTo(m)] = promotionPiece;
 
-	b.pieces[fromType] ^= (1ull << m.getFrom());
-	b.pieces[pieceType(promotionPiece)] ^= (1ull << m.getTo());
-	b.colors[b.turn] ^= (1ull << m.getFrom()) ^ (1ull << m.getTo());
+	b.pieces[fromType] ^= (1ull << moveFrom(m));
+	b.pieces[pieceType(promotionPiece)] ^= (1ull << moveTo(m));
+	b.colors[b.turn] ^= (1ull << moveFrom(m)) ^ (1ull << moveTo(m));
 	if (toPiece != EMPTY) {
-		b.pieces[toType] ^= (1ull << m.getTo());
-		b.colors[!b.turn] ^= (1ull << m.getTo());
+		b.pieces[toType] ^= (1ull << moveTo(m));
+		b.colors[!b.turn] ^= (1ull << moveTo(m));
 	}
 	b.colors[NO_COLOR] = ~(b.colors[b.turn] | b.colors[!b.turn]);
 
-	b.key ^= pieceKeys[fromPiece][m.getFrom()] ^ pieceKeys[promotionPiece][m.getTo()];
-	if (toPiece != EMPTY) b.key ^= pieceKeys[toPiece][m.getTo()];
+	b.key ^= pieceKeys[fromPiece][moveFrom(m)] ^ pieceKeys[promotionPiece][moveTo(m)];
+	if (toPiece != EMPTY) b.key ^= pieceKeys[toPiece][moveTo(m)];
 	b.key ^= turnKey;
 
-	int mgPSQT = psqtScore(pieceType(promotionPiece), psqtSquare(m.getTo(), b.turn), MG) - psqtScore(PAWN, psqtSquare(m.getFrom(), b.turn), MG);
-	if (toPiece != EMPTY) mgPSQT += psqtScore(toType, psqtSquare(m.getTo(), !b.turn), MG);
+	int mgPSQT = psqtScore(pieceType(promotionPiece), psqtSquare(moveTo(m), b.turn), MG) - psqtScore(PAWN, psqtSquare(moveFrom(m), b.turn), MG);
+	if (toPiece != EMPTY) mgPSQT += psqtScore(toType, psqtSquare(moveTo(m), !b.turn), MG);
 	b.psqt[MG] += (b.turn == WHITE) ? mgPSQT : -mgPSQT;
 
-	int egPSQT = psqtScore(pieceType(promotionPiece), psqtSquare(m.getTo(), b.turn), EG) - psqtScore(PAWN, psqtSquare(m.getFrom(), b.turn), EG);
-	if (toPiece != EMPTY) egPSQT += psqtScore(toType, psqtSquare(m.getTo(), !b.turn), EG);
+	int egPSQT = psqtScore(pieceType(promotionPiece), psqtSquare(moveTo(m), b.turn), EG) - psqtScore(PAWN, psqtSquare(moveFrom(m), b.turn), EG);
+	if (toPiece != EMPTY) egPSQT += psqtScore(toType, psqtSquare(moveTo(m), !b.turn), EG);
 	b.psqt[EG] += (b.turn == WHITE) ? egPSQT : -egPSQT;
 
 	return u;
 }
 
-Undo makeCastleMove(Board& b, const Move& m) {
-	const int fromPiece = b.squares[m.getFrom()];
+Undo makeCastleMove(Board& b, const uint16_t& m) {
+	const int fromPiece = b.squares[moveFrom(m)];
 	const int fromType = pieceType(fromPiece);
 
-	const int fromRook = m.getFrom() + ((m.getTo() == G1 || m.getTo() == G8) ? 3 : -4);
-	const int toRook = m.getFrom() + ((m.getTo() == G1 || m.getTo() == G8) ? 1 : -1);
+	const int fromRook = moveFrom(m) + ((moveTo(m) == G1 || moveTo(m) == G8) ? 3 : -4);
+	const int toRook = moveFrom(m) + ((moveTo(m) == G1 || moveTo(m) == G8) ? 1 : -1);
 
 	const int rookPiece = makePiece(ROOK, b.turn);
 
@@ -193,18 +193,18 @@ Undo makeCastleMove(Board& b, const Move& m) {
 
 	b.fiftyMove += 1;
 
-	b.squares[m.getFrom()] = EMPTY;
-	b.squares[m.getTo()] = fromPiece;
+	b.squares[moveFrom(m)] = EMPTY;
+	b.squares[moveTo(m)] = fromPiece;
 	b.squares[fromRook] = EMPTY;
 	b.squares[toRook] = rookPiece;
 
-	b.pieces[KING] ^= (1ull << m.getFrom()) ^ (1ull << m.getTo());
+	b.pieces[KING] ^= (1ull << moveFrom(m)) ^ (1ull << moveTo(m));
 	b.pieces[ROOK] ^= (1ull << fromRook) ^ (1ull << toRook);
-	b.colors[b.turn] ^= (1ull << m.getFrom()) ^ (1ull << m.getTo()) ^ (1ull << fromRook) ^ (1ull << toRook);
+	b.colors[b.turn] ^= (1ull << moveFrom(m)) ^ (1ull << moveTo(m)) ^ (1ull << fromRook) ^ (1ull << toRook);
 
 	b.colors[NO_COLOR] = ~(b.colors[b.turn] | b.colors[!b.turn]);
 
-	b.key ^= pieceKeys[fromPiece][m.getFrom()] ^ pieceKeys[fromPiece][m.getTo()] ^ pieceKeys[rookPiece][fromRook] ^ pieceKeys[rookPiece][toRook];
+	b.key ^= pieceKeys[fromPiece][moveFrom(m)] ^ pieceKeys[fromPiece][moveTo(m)] ^ pieceKeys[rookPiece][fromRook] ^ pieceKeys[rookPiece][toRook];
 	b.key ^= turnKey;
 
 	updateCastleRights(b, m);
@@ -218,7 +218,7 @@ Undo makeCastleMove(Board& b, const Move& m) {
 	return u;
 }
 
-void undoMove(Board& b, const Move& m, const Undo& u) {
+void undoMove(Board& b, const uint16_t& m, const Undo& u) {
 	b.turn = !b.turn;
 	b.key = u.key;
 	b.epSquare = u.epSquare;
@@ -228,62 +228,62 @@ void undoMove(Board& b, const Move& m, const Undo& u) {
 	b.fiftyMove = u.fiftyMove;
 	b.history[b.moveNum--] = 0ull;
 
-	assert(validSquare(m.getFrom()) && validSquare(m.getTo()));
+	assert(validSquare(moveFrom(m)) && validSquare(moveTo(m)));
 
-	if (m.getFlag() == EP_MOVE) {
+	if (moveFlag(m) == EP_MOVE) {
 		const int epSquare = b.epSquare - 8 + (b.turn << 4);
 
-		b.squares[m.getFrom()] = b.squares[m.getTo()];
-		b.squares[m.getTo()] = EMPTY;
+		b.squares[moveFrom(m)] = b.squares[moveTo(m)];
+		b.squares[moveTo(m)] = EMPTY;
 		b.squares[epSquare] = u.capturedPiece;
 
-		b.pieces[PAWN] ^= (1ull << m.getFrom()) ^ (1ull << m.getTo());
-		b.colors[b.turn] ^= (1ull << m.getFrom()) ^ (1ull << m.getTo());
+		b.pieces[PAWN] ^= (1ull << moveFrom(m)) ^ (1ull << moveTo(m));
+		b.colors[b.turn] ^= (1ull << moveFrom(m)) ^ (1ull << moveTo(m));
 
 		b.pieces[PAWN] ^= (1ull << epSquare);
 		b.colors[!b.turn] ^= (1ull << epSquare);
 	}
-	else if (m.getFlag() >= PROMOTION_KNIGHT) {
+	else if (moveFlag(m) >= PROMOTION_KNIGHT) {
 		const int capturedType = pieceType(u.capturedPiece);
 
-		b.squares[m.getFrom()] = makePiece(PAWN, b.turn);
-		b.squares[m.getTo()] = u.capturedPiece;
+		b.squares[moveFrom(m)] = makePiece(PAWN, b.turn);
+		b.squares[moveTo(m)] = u.capturedPiece;
 
-		int promotionPiece = makePiece(m.getFlag() - 2, b.turn);
+		int promotionPiece = makePiece(moveFlag(m) - 2, b.turn);
 
-		b.pieces[PAWN] ^= (1ull << m.getFrom());
-		b.pieces[pieceType(promotionPiece)] ^= (1ull << m.getTo());
-		b.colors[b.turn] ^= (1ull << m.getFrom()) ^ (1ull << m.getTo());
+		b.pieces[PAWN] ^= (1ull << moveFrom(m));
+		b.pieces[pieceType(promotionPiece)] ^= (1ull << moveTo(m));
+		b.colors[b.turn] ^= (1ull << moveFrom(m)) ^ (1ull << moveTo(m));
 		if (u.capturedPiece != EMPTY) {
-			b.pieces[capturedType] ^= (1ull << m.getTo());
-			b.colors[!b.turn] ^= (1ull << m.getTo());
+			b.pieces[capturedType] ^= (1ull << moveTo(m));
+			b.colors[!b.turn] ^= (1ull << moveTo(m));
 		}
 	}
-	else if (m.getFlag() == CASTLE_MOVE) {
-		const int fromRook = m.getFrom() + ((m.getTo() == G1 || m.getTo() == G8) ? 3 : -4);
-		const int toRook = m.getFrom() + ((m.getTo() == G1 || m.getTo() == G8) ? 1 : -1);
+	else if (moveFlag(m) == CASTLE_MOVE) {
+		const int fromRook = moveFrom(m) + ((moveTo(m) == G1 || moveTo(m) == G8) ? 3 : -4);
+		const int toRook = moveFrom(m) + ((moveTo(m) == G1 || moveTo(m) == G8) ? 1 : -1);
 
-		b.squares[m.getFrom()] = b.squares[m.getTo()];
-		b.squares[m.getTo()] = EMPTY;
+		b.squares[moveFrom(m)] = b.squares[moveTo(m)];
+		b.squares[moveTo(m)] = EMPTY;
 		b.squares[fromRook] = b.squares[toRook];
 		b.squares[toRook] = EMPTY;
 
-		b.pieces[KING] ^= (1ull << m.getFrom()) ^ (1ull << m.getTo());
+		b.pieces[KING] ^= (1ull << moveFrom(m)) ^ (1ull << moveTo(m));
 		b.pieces[ROOK] ^= (1ull << fromRook) ^ (1ull << toRook);
-		b.colors[b.turn] ^= (1ull << m.getFrom()) ^ (1ull << m.getTo()) ^ (1ull << fromRook) ^ (1ull << toRook);
+		b.colors[b.turn] ^= (1ull << moveFrom(m)) ^ (1ull << moveTo(m)) ^ (1ull << fromRook) ^ (1ull << toRook);
 	}
 	else {  // NORMAL_MOVE
-		b.squares[m.getFrom()] = b.squares[m.getTo()];
-		b.squares[m.getTo()] = u.capturedPiece;
+		b.squares[moveFrom(m)] = b.squares[moveTo(m)];
+		b.squares[moveTo(m)] = u.capturedPiece;
 
-		const int fromType = pieceType(b.squares[m.getFrom()]);
-		const int toType = pieceType(b.squares[m.getTo()]);
+		const int fromType = pieceType(b.squares[moveFrom(m)]);
+		const int toType = pieceType(b.squares[moveTo(m)]);
 
-		b.pieces[fromType] ^= (1ull << m.getFrom()) ^ (1ull << m.getTo());
-		b.colors[b.turn] ^= (1ull << m.getFrom()) ^ (1ull << m.getTo());
+		b.pieces[fromType] ^= (1ull << moveFrom(m)) ^ (1ull << moveTo(m));
+		b.colors[b.turn] ^= (1ull << moveFrom(m)) ^ (1ull << moveTo(m));
 		if (u.capturedPiece != EMPTY) {
-			b.pieces[toType] ^= (1ull << m.getTo());
-			b.colors[!b.turn] ^= (1ull << m.getTo());
+			b.pieces[toType] ^= (1ull << moveTo(m));
+			b.colors[!b.turn] ^= (1ull << moveTo(m));
 		}
 	}
 
@@ -305,48 +305,48 @@ void undoNullMove(Board& b, const Undo& u) {
 	b.epSquare = u.epSquare;
 }
 
-void updateCastleRights(Board& b, const Move& m) {
+void updateCastleRights(Board& b, const uint16_t& m) {
 	if (b.castlingRights & WK_CASTLING) {
-		if ((b.squares[m.getFrom()] == W_KING) ||
-			(m.getTo() == E1 || m.getTo() == H1) ||
-			(m.getFrom() == H1 && b.squares[H1] == W_ROOK))
+		if ((b.squares[moveFrom(m)] == W_KING) ||
+			(moveTo(m) == E1 || moveTo(m) == H1) ||
+			(moveFrom(m) == H1 && b.squares[H1] == W_ROOK))
 		{
 			b.castlingRights ^= WK_CASTLING;
 		}
 	}
 	if (b.castlingRights & WQ_CASTLING) {
-		if ((b.squares[m.getFrom()] == W_KING) ||
-			(m.getTo() == E1 || m.getTo() == A1) ||
-			(m.getFrom() == A1 && b.squares[A1] == W_ROOK))
+		if ((b.squares[moveFrom(m)] == W_KING) ||
+			(moveTo(m) == E1 || moveTo(m) == A1) ||
+			(moveFrom(m) == A1 && b.squares[A1] == W_ROOK))
 		{
 			b.castlingRights ^= WQ_CASTLING;
 		}
 	}
 	if (b.castlingRights & BK_CASTLING) {
-		if ((b.squares[m.getFrom()] == B_KING) ||
-			(m.getTo() == E8 || m.getTo() == H8) ||
-			(m.getFrom() == H8 && b.squares[H8] == B_ROOK))
+		if ((b.squares[moveFrom(m)] == B_KING) ||
+			(moveTo(m) == E8 || moveTo(m) == H8) ||
+			(moveFrom(m) == H8 && b.squares[H8] == B_ROOK))
 		{
 			b.castlingRights ^= BK_CASTLING;
 		}
 	}
 	if (b.castlingRights & BQ_CASTLING) {
-		if ((b.squares[m.getFrom()] == B_KING) ||
-			(m.getTo() == E8 || m.getTo() == A8) ||
-			(m.getFrom() == A8 && b.squares[A8] == B_ROOK))
+		if ((b.squares[moveFrom(m)] == B_KING) ||
+			(moveTo(m) == E8 || moveTo(m) == A8) ||
+			(moveFrom(m) == A8 && b.squares[A8] == B_ROOK))
 		{
 			b.castlingRights ^= BQ_CASTLING;
 		}
 	}
 }
 
-bool moveIsPsuedoLegal(const Board& b, const Move& m) {
+bool moveIsPsuedoLegal(const Board& b, const uint16_t& m) {
 	// Null move
-	if (m == NO_MOVE) return false;
+	if (!m) return false;
 
-	const int from = m.getFrom();
-	const int to = m.getTo();
-	const int flag = m.getFlag();
+	const int from = moveFrom(m);
+	const int to = moveTo(m);
+	const int flag = moveFlag(m);
 
 	// Not a valid square, not moving
 	if (!validSquare(from) || !validSquare(to) || from == to) return false;

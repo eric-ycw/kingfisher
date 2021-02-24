@@ -146,14 +146,14 @@ std::string toNotation(int sqr) {
 	return s;
 }
 
-std::string toNotation(const Move& m) {
-	if (m == NO_MOVE) return "0000";
+std::string toNotation(const uint16_t& m) {
+	if (!m) return "0000";
 	std::string s = "      ";
-	s[0] = char(m.getFrom() % 8 + 97);
-	s[1] = char(m.getFrom() / 8 + 49);
-	s[2] = char(m.getTo() % 8 + 97);
-	s[3] = char(m.getTo() / 8 + 49);
-	switch (m.getFlag()) {
+	s[0] = char(moveFrom(m) % 8 + 97);
+	s[1] = char(moveFrom(m) / 8 + 49);
+	s[2] = char(moveTo(m) % 8 + 97);
+	s[3] = char(moveTo(m) / 8 + 49);
+	switch (moveFlag(m)) {
 	default:
 		s.resize(4);
 		break;
@@ -173,7 +173,7 @@ std::string toNotation(const Move& m) {
 	return s;
 }
 
-Move toMove(const Board& b, const std::string& notation) {
+uint16_t toMove(const Board& b, const std::string& notation) {
 	assert(notation.size() >= 4);
 	int from = int(notation[0]) - 97 + (int(notation[1]) - 49) * 8;
 	int to = int(notation[2]) - 97 +  (int(notation[3]) - 49) * 8;
@@ -192,7 +192,7 @@ Move toMove(const Board& b, const std::string& notation) {
 			if (notation[4] == 'q') flag = PROMOTION_QUEEN;
 		}
 	}
-	return Move(from, to, flag);
+	return createMove(from, to, flag);
 }
 
 void printBoard(const Board& b) {

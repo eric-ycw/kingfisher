@@ -20,8 +20,8 @@ struct SearchInfo {
 	int limit = 0;
 	bool abort = false;
 
-	Move bestMove = NO_MOVE;
-	Move pv[MAX_PLY];
+	uint16_t bestMove = 0;
+	uint16_t pv[MAX_PLY];
 
 	// ### DEBUG ###
 	bool debug = false;
@@ -42,7 +42,7 @@ struct SearchInfo {
 		
 		bestMove = si.bestMove;
 		for (int i = 0; i < MAX_PLY; ++i) {
-			if (si.pv[i] == NO_MOVE) break;
+			if (si.pv[i] == 0) break;
 			pv[i] = si.pv[i];
 		}
 
@@ -71,8 +71,8 @@ struct SearchInfo {
 		qnodes = 0;
 		score = 0;
 		
-		bestMove = NO_MOVE;
-		for (auto& m : pv) m = NO_MOVE;
+		bestMove = 0;
+		for (auto& m : pv) m = 0;
 
 		// ### DEBUG ###
 		for (int i = 0; i < FAIL_HIGH_MOVES; ++i) {
@@ -97,7 +97,7 @@ struct SearchInfo {
 		std::cout << " time " << (double)(clock() - start) / (CLOCKS_PER_SEC / 1000);
 		std::cout << " pv ";
 		for (const auto& m : pv) {
-			if (m == NO_MOVE) break;
+			if (!m) break;
 			std::cout << toNotation(m) << " ";
 		}
 		std::cout << "\n";
@@ -152,7 +152,7 @@ struct SearchInfo {
 static constexpr int aspirationMinDepth = 5;
 static constexpr int aspirationWindow = 35;
 
-static Move killers[2][MAX_PLY + 1];
+static uint16_t killers[2][MAX_PLY + 1];
 static constexpr int killerBonus[4] = { -1, -2, -3, -4 };
 
 static constexpr int historyMultiplier = 32;
@@ -204,17 +204,17 @@ void timeOver(SearchInfo& si, const bool ignoreDepth, const bool ignoreNodeCount
 
 void updateHistory(int& entry, int delta);
 
-int scoreMove(const Board& b, const Move& m, int ply, int phase, const Move& hashMove);
-std::vector<ScoredMove> scoreMoves(const Board& b, const std::vector<Move>& moves, int ply, const Move& hashMove);
+int scoreMove(const Board& b, const uint16_t& m, int ply, int phase, const uint16_t& hashMove);
+std::vector<ScoredMove> scoreMoves(const Board& b, const std::vector<uint16_t>& moves, int ply, const uint16_t& hashMove);
 
-int scoreNoisyMove(const Board& b, const Move& m);
-std::vector<ScoredMove> scoreNoisyMoves(const Board& b, const std::vector<Move>& moves);
+int scoreNoisyMove(const Board& b, const uint16_t& m);
+std::vector<ScoredMove> scoreNoisyMoves(const Board& b, const std::vector<uint16_t>& moves);
 
-int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, Move(&ppv)[MAX_PLY], bool allowNull);
-int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, Move (&ppv)[MAX_PLY]);
+int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, uint16_t(&ppv)[MAX_PLY], bool allowNull);
+int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, uint16_t (&ppv)[MAX_PLY]);
 
-int staticExchangeEvaluation(const Board& b, const Move& m, int threshold = 0);
-int SEEMoveVal(const Board& b, const Move& m);
+int staticExchangeEvaluation(const Board& b, const uint16_t& m, int threshold = 0);
+int SEEMoveVal(const Board& b, const uint16_t& m);
 int greatestTacticalGain(const Board& b);
 
 void iterativeDeepening(Board& b, SearchInfo& si, int timeLimit);

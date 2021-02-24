@@ -7,7 +7,7 @@
 #include "search.h"
 #include "types.h"
 
-Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<ScoredMove>& moves, const int& ply, int& movesTried) {
+uint16_t pickNextMove(const Board& b, const uint16_t& hashMove, int& stage, std::vector<ScoredMove>& moves, const int& ply, int& movesTried) {
 
 	switch (stage) {
 		
@@ -18,7 +18,7 @@ Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<
 
 		case TT_PICK: { // We try move from hash table first
 			stage = NORMAL_GEN;
-			if (hashMove != NO_MOVE && moveIsPsuedoLegal(b, hashMove)) {
+			if (hashMove != 0 && moveIsPsuedoLegal(b, hashMove)) {
 				movesTried++;
 				return hashMove;
 			}
@@ -46,7 +46,7 @@ Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<
 			if (movesTried > moves.size()) {
 				assert(movesTried == moves.size() + 1);
 				movesTried--;
-				return NO_MOVE;
+				return 0;
 			}
 
 			// We skip the hash move, as we have already tried it
@@ -59,7 +59,7 @@ Move pickNextMove(const Board& b, const Move& hashMove, int& stage, std::vector<
 		}
 
 		default: {
-			return NO_MOVE;
+			return 0;
 		}
 
 	}

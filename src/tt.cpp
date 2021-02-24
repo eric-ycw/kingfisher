@@ -41,7 +41,7 @@ int probeTT(const uint64_t& key, const int& depth, const int& alpha, const int& 
 	return NO_VALUE;
 }
 
-Move probeHashMove(const uint64_t& key) {
+uint16_t probeHashMove(const uint64_t& key) {
 	int index = (uint32_t)key & TTMaxEntry;
 	for (int i = 0; i < 4; ++i) {
 		auto& entry = tt[index + i];
@@ -49,10 +49,10 @@ Move probeHashMove(const uint64_t& key) {
 			return entry.move;
 		}
 	}
-	return NO_MOVE;
+	return 0;
 }
 
-void storeTT(const uint64_t& key, const int& depth, const int& score, const int& flag, const int& eval, const int& ply, const Move& m) {
+void storeTT(const uint64_t& key, const int& depth, const int& score, const int& flag, const int& eval, const int& ply, const uint16_t& m) {
 	int index = (uint32_t)key & TTMaxEntry;
 
 	bool stored = false;
