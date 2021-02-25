@@ -27,173 +27,163 @@ int psqtScore(int piece, int sqr, int phase) {
 
 int evaluate(const Board& b, int color) {
 	int phase = getPhase(b);
-	int eval = 0;
+	EvalInfo ei;
+
+	ei.kingRings[WHITE] = kingRing[lsb(b.pieces[KING] & b.colors[WHITE])];
+	ei.kingRings[BLACK] = kingRing[lsb(b.pieces[KING] & b.colors[BLACK])];
+
+	ei.pawns[WHITE] = b.pieces[PAWN] & b.colors[WHITE];
+	ei.pawns[BLACK] = b.pieces[PAWN] & b.colors[BLACK];
+
+	ei.safeSquares[WHITE] = ~(((ei.pawns[BLACK] >> 7) & ~fileAMask) | ((ei.pawns[BLACK] >> 9) & ~fileHMask)) & b.colors[NO_COLOR];
+	ei.safeSquares[BLACK] = ~(((ei.pawns[WHITE] << 7) & ~fileHMask) | ((ei.pawns[WHITE] << 9) & ~fileAMask)) & b.colors[NO_COLOR];
+	ei.attackSquares[WHITE] = ~ei.safeSquares[BLACK];
+	ei.attackSquares[BLACK] = ~ei.safeSquares[WHITE];
 
 	// Step 1: Material
 	// The value of pieces change slightly as the game progresses to reflect their changing importance (e.g. pawns are more important in the endgame)
-	int whiteMaterial = 0;
-	int blackMaterial = 0;
 	for (int i = PAWN; i <= QUEEN; ++i) {
-		whiteMaterial += countBits(b.pieces[i] & b.colors[WHITE]) * taperedScore(pieceValues[i][MG], pieceValues[i][EG], phase);
-		blackMaterial += countBits(b.pieces[i] & b.colors[BLACK]) * taperedScore(pieceValues[i][MG], pieceValues[i][EG], phase);
+		ei.mg += countBits(b.pieces[i] & b.colors[WHITE]) * pieceValues[i][MG];
+		ei.eg += countBits(b.pieces[i] & b.colors[WHITE]) * pieceValues[i][EG];
+
+		ei.mg -= countBits(b.pieces[i] & b.colors[BLACK]) * pieceValues[i][MG];
+		ei.eg -= countBits(b.pieces[i] & b.colors[BLACK]) * pieceValues[i][EG];
 	}
-	eval += whiteMaterial - blackMaterial;
 
 	// Step 2: Piece-square tables
 	// A basic evaluation of the placement of pieces
-	eval += taperedScore(b.psqt[MG], b.psqt[EG], phase);
-
-	// King attack info
-	int whiteKingSqr = lsb(b.pieces[KING] & b.colors[WHITE]);
-	int blackKingSqr = lsb(b.pieces[KING] & b.colors[BLACK]);
-	uint64_t whiteKingRing = kingRing[whiteKingSqr];
-	uint64_t blackKingRing = kingRing[blackKingSqr];
+	ei.mg += b.psqt[MG];
+	ei.eg += b.psqt[EG];
 	
 	// Step 3: Evaluate pawns
-	uint64_t whitePawns = b.pieces[PAWN] & b.colors[WHITE];
-	uint64_t blackPawns = b.pieces[PAWN] & b.colors[BLACK];
-	eval += evaluatePawns(b, whitePawns, blackPawns, blackKingRing, WHITE, phase);
-	eval -= evaluatePawns(b, blackPawns, whitePawns, whiteKingRing, BLACK, phase);
-
-	// Mobility info
-	uint64_t whiteSafeSquares = ~(((blackPawns >> 7) & ~fileAMask) | ((blackPawns >> 9) & ~fileHMask)) & b.colors[NO_COLOR];
-	uint64_t blackSafeSquares = ~(((whitePawns << 7) & ~fileHMask) | ((whitePawns << 9) & ~fileAMask)) & b.colors[NO_COLOR];
-
-	// Attack info
-	uint64_t whiteAttackSquares = ~blackSafeSquares;
-	uint64_t blackAttackSquares = ~whiteSafeSquares;
+	evaluatePawns(b, ei, WHITE);
+	evaluatePawns(b, ei, BLACK);
 
 	// Step 4: Evaluate knights, bishops, rooks and queens
-	eval += evaluateKnights(b, b.pieces[KNIGHT] & b.colors[WHITE], whiteSafeSquares, blackKingRing, whiteAttackSquares);
-	eval += evaluateBishops(b, b.pieces[BISHOP] & b.colors[WHITE], whiteSafeSquares, blackKingRing, whiteAttackSquares, WHITE);
-	eval += evaluateRooks(b, b.pieces[ROOK] & b.colors[WHITE], whiteSafeSquares, blackKingRing, whiteAttackSquares, WHITE);
-	eval += evaluateQueens(b, b.pieces[QUEEN] & b.colors[WHITE], whiteSafeSquares, blackKingRing, whiteAttackSquares, WHITE);
+	evaluateKnights(b, ei, WHITE);
+	evaluateKnights(b, ei, BLACK);
 
-	eval -= evaluateKnights(b, b.pieces[KNIGHT] & b.colors[BLACK], blackSafeSquares, whiteKingRing, blackAttackSquares);
-	eval -= evaluateBishops(b, b.pieces[BISHOP] & b.colors[BLACK], blackSafeSquares, whiteKingRing, blackAttackSquares, BLACK);
-	eval -= evaluateRooks(b, b.pieces[ROOK] & b.colors[BLACK], blackSafeSquares, whiteKingRing, blackAttackSquares, BLACK);
-	eval -= evaluateQueens(b, b.pieces[QUEEN] & b.colors[BLACK], blackSafeSquares, whiteKingRing, blackAttackSquares, BLACK);
+	evaluateBishops(b, ei, WHITE);
+	evaluateBishops(b, ei, BLACK);
+
+	evaluateRooks(b, ei, WHITE);
+	evaluateRooks(b, ei, BLACK);
+
+	evaluateQueens(b, ei, WHITE);
+	evaluateQueens(b, ei, BLACK);
 	
 	// Step 5: Evaluate kings
-	eval += evaluateKing(b, whiteKingSqr, whiteKingRing, whiteAttackSquares, blackAttackSquares, WHITE, phase);
-	eval -= evaluateKing(b, blackKingSqr, blackKingRing, blackAttackSquares, whiteAttackSquares, BLACK, phase);
+	evaluateKing(b, ei, WHITE);
+	evaluateKing(b, ei, BLACK);
 
 	// Step 6: Evaluate space
-	eval += evaluateSpace(b, whiteSafeSquares, WHITE, phase);
-	eval -= evaluateSpace(b, blackSafeSquares, BLACK, phase);
+	if (phase >= spacePhaseLimit) {
+		evaluateSpace(b, ei, WHITE);
+		evaluateSpace(b, ei, BLACK);
+	}
 
 	// Step 7: Tempo bonus
-	eval += (b.turn == WHITE) ? tempoBonus : -tempoBonus;
+	ei.mg += (b.turn == WHITE) ? tempoBonus : -tempoBonus;
+	ei.eg += (b.turn == WHITE) ? tempoBonus : -tempoBonus;
 
 	// Step 8: Evaluate threats
-	eval += evaluateThreats(b, whiteAttackSquares, blackAttackSquares, WHITE);
-	eval -= evaluateThreats(b, blackAttackSquares, whiteAttackSquares, BLACK);
+	evaluateThreats(b, ei, WHITE);
+	evaluateThreats(b, ei, BLACK);
 
+	int eval = taperedScore(ei.mg, ei.eg, phase);
 	return (color == WHITE) ? eval : -eval;
 }
 
-int evaluateSpace(const Board& b, const uint64_t& safeSquares, const int& color, const int& phase) {
-	if (phase < spacePhaseLimit) return 0;
-	int pieceCount = countBits(b.colors[color] & ~b.pieces[PAWN] & ~b.pieces[KING]);
-	uint64_t spaceArea = safeSquares & centerMasks[color] & b.colors[NO_COLOR];
-	return countBits(spaceArea) * std::max(pieceCount - 3, 0);
-}
-
-int evaluateThreats(const Board&b, const uint64_t& defendedSquares, const uint64_t& attackedSquares, const int& color) {
-	int eval = 0;
-
-	// Step 1: Safe pawn threat
-	// We give a bonus for threats made by our safe pawns to non-pawn enemies
-	// A safe pawn is a pawn that is not attacked by enemies or defended by us
-	uint64_t safePawns = (defendedSquares | ~attackedSquares) & b.pieces[PAWN] & b.colors[color];
-	uint64_t safePawnAttackSquares = (color == WHITE) ? (((safePawns << 7) & ~fileHMask) | ((safePawns << 9) & ~fileAMask)) :
-														(((safePawns >> 7) & ~fileAMask) | ((safePawns >> 9) & ~fileHMask));
-	eval += safePawnThreatBonus * countBits(safePawnAttackSquares & b.colors[!color] & ~b.pieces[PAWN]);
-	
-	return eval;
-	
-}
-
-int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, const uint64_t& enemyKingRing, int color, int phase) {
+void evaluatePawns(const Board& b, EvalInfo& ei, int color) {
 	// Step 0: Probe pawn hash table
 	// As pawn structures are often the same for similar positions, we check if we have evaluated this pawn structure before
-	int eval = 0;
-	int hashEval = probePawnHash(pawns, color);
-	uint64_t pawnsCopy = pawns;
+	int hashEval = probePawnHash(ei.pawns[color], color);
+	int mg = 0;
+	int eg = 0;
+	uint64_t pawns = ei.pawns[color];
 
 	if (hashEval != NO_VALUE) {
-		eval = hashEval;
+		mg = hashEval;
 	} else {
 		// Step 1: Supported pawns
 		// We give a bonus to pawns that defend each other
-		eval += (countBits((pawns & ((color == WHITE) ? (pawns >> 7) & ~fileAMask : (pawns << 7) & ~fileHMask)) |
+		mg += (countBits((pawns & ((color == WHITE) ? (pawns >> 7) & ~fileAMask : (pawns << 7) & ~fileHMask)) |
 						(pawns & ((color == WHITE) ? (pawns >> 9) & ~fileHMask : (pawns << 9) & ~fileAMask)))) *
 						supportedPawnBonus;
 
 		// Step 2: Phalanx pawns
 		// We give a bonus to pawns that are beside each other
-		eval += (countBits((pawns & (pawns >> 1) & ~fileHMask) | (pawns & (pawns << 1) & ~fileAMask))) * phalanxPawnBonus;
+		mg += (countBits((pawns & (pawns >> 1) & ~fileHMask) | (pawns & (pawns << 1) & ~fileAMask))) * phalanxPawnBonus;
 
 		// Step 3: Doubled pawns
 		// We give a penalty if there are more than one pawns on each file
 		for (int i = 0; i < 8; ++i) {
-			if (countBits(pawns & fileMasks[i]) > 1) eval -= doubledPawnPenalty;
+			if (countBits(pawns & fileMasks[i]) > 1) mg -= doubledPawnPenalty;
 		}
 
-		storePawnHash(pawns, eval, color);
+		storePawnHash(pawns, mg, color);
 	}
+
+	eg = mg; // Update eg score to mg score as the above evaluation terms are not phase-dependent
 
 	while (pawns) {
 		int sqr = popBit(pawns);
 
 		// Step 4: Isolated pawns
 		// We give a penalty if there are pawns that do not have friendly pawns in neighboring files that could support them
-		eval -= ((neighborFileMasks[sqr % 8] & ~fileMasks[sqr % 8] & b.pieces[PAWN] & b.colors[color]) == 0) * isolatedPawnPenalty;
+		int isolated = ((neighborFileMasks[sqr % 8] & ~fileMasks[sqr % 8] & b.pieces[PAWN] & b.colors[color]) == 0) * isolatedPawnPenalty;
+		mg -= isolated;
+		eg -= isolated;
 
 		// Step 5: Passed pawn
 		// We give a bonus to pawns that have passed enemy pawns
 		// We reduce the bonus if the passed pawn is being blocked by a piece
-		int passedRank = passed(b, sqr, enemyPawns, color);
+		int passedRank = passed(b, sqr, ei.pawns[!color], color);
 		bool blocked = (b.squares[sqr + (color == WHITE) * 8] == EMPTY);
-		int mgPassedScore = blocked ? passedBonus[passedRank][MG] : passedBlockedBonus[passedRank][MG];
-		int egPassedScore = blocked ? passedBonus[passedRank][EG] : passedBlockedBonus[passedRank][EG];
-		eval += taperedScore(mgPassedScore, egPassedScore, phase);
+		mg += blocked ? passedBonus[passedRank][MG] : passedBlockedBonus[passedRank][MG];
+		eg += blocked ? passedBonus[passedRank][EG] : passedBlockedBonus[passedRank][EG];
 
 		// King attacks
-		eval += taperedScore(countBits(pawnAttacks[sqr][color] & enemyKingRing) * kingAttackerBonus[PAWN], 0, phase / 2);
-
+		mg += countBits(pawnAttacks[sqr][color] & ei.kingRings[!color]) * kingAttackerBonus[PAWN];
 	}
 
-	return eval;
+	ei.mg += (color == WHITE) ? mg : -mg;
+	ei.eg += (color == WHITE) ? eg : -eg;
 }
 
-int evaluateKnights(const Board& b, uint64_t knights, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares) {
+void evaluateKnights(const Board& b, EvalInfo& ei, int color) {
 	int eval = 0;
+	uint64_t knights = b.pieces[KNIGHT] & b.colors[color];
 	while (knights) {
 		uint64_t attacks = knightAttacks[popBit(knights)];
 		// Mobility
-		eval += knightMobility[countBits(attacks & safeSquares)];
-		// Add to attack bitmap
-		attackSquares |= attacks;
+		eval += knightMobility[countBits(attacks & ei.safeSquares[color])];
+
+		// Populate attack bitmap
+		ei.attackSquares[color] |= attacks;
+
 		// King attacks
-		int kingAttacks = countBits(attacks & enemyKingRing);
+		int kingAttacks = countBits(attacks & ei.kingRings[!color]);
 		eval += kingAttacks * kingAttackBonus;
 		eval += (kingAttacks > 0) * kingAttackerBonus[KNIGHT];
 	}
-	return eval;
+	
+	ei.mg += (color == WHITE) ? eval : -eval;
+	ei.eg += (color == WHITE) ? eval : -eval;
 }
 
-int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color) {
+void evaluateBishops(const Board& b, EvalInfo& ei, int color) {
 	int eval = 0;
 	int count = 0;
+	uint64_t bishops = b.pieces[BISHOP] & b.colors[color];
 	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (bishops) {
 		int sqr = popBit(bishops);
-		uint64_t attacks = *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr]);
+		uint64_t attacks = getBishopMagic(occ, sqr);
 		attacks &= ~b.colors[b.turn];
 
 		// Add to attack bitmap
-		attackSquares |= attacks;
+		ei.attackSquares[color] |= attacks;
 
 		// Bad bishops
 		int bishopPawns = countBits(b.pieces[PAWN] & b.colors[color] & squareColorMasks[squareColor(sqr)]);
@@ -201,69 +191,102 @@ int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquare
 		eval -= badBishopPenalty * (bishopPawns * (1 + blockedCentrePawns));
 
 		// Mobility
-		eval += bishopMobility[countBits(attacks & safeSquares)];
+		eval += bishopMobility[countBits(attacks & ei.safeSquares[color])];
 
 		// King attacks
-		int kingAttacks = countBits(attacks & enemyKingRing);
+		int kingAttacks = countBits(attacks & ei.kingRings[!color]);
 		eval += kingAttacks * kingAttackBonus;
 		eval += (kingAttacks > 0) * kingAttackerBonus[BISHOP];
 		count++;
 	}
 	// Bishop pair bonus
 	if (count >= 2) eval += bishopPairBonus;
-	return eval;
+	
+	ei.mg += (color == WHITE) ? eval : -eval;
+	ei.eg += (color == WHITE) ? eval : -eval;
 }
 
-int evaluateRooks(const Board& b, uint64_t rooks, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color) {
+void evaluateRooks(const Board& b, EvalInfo& ei, int color) {
 	int eval = 0;
+	uint64_t rooks = b.pieces[ROOK] & b.colors[color];
 	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (rooks) {
 		int sqr = popBit(rooks);
-		uint64_t attacks = *((((occ & rookBlockerMasks[sqr]) * rookMagics[sqr]) >> rookMagicShifts[sqr]) + rookMagicIndexIncrements[sqr]);
+		uint64_t attacks = getRookMagic(occ, sqr);
 		attacks &= ~b.colors[b.turn];
 		// Mobility
-		eval += rookMobility[countBits(attacks & safeSquares)];
+		eval += rookMobility[countBits(attacks & ei.safeSquares[color])];
 		// Add to attack bitmap
-		attackSquares |= attacks;
+		ei.attackSquares[color] |= attacks;
 		// King attacks
-		int kingAttacks = countBits(attacks & enemyKingRing);
+		int kingAttacks = countBits(attacks & ei.kingRings[!color]);
 		eval += kingAttacks * kingAttackBonus;
 		eval += (kingAttacks > 0) * kingAttackerBonus[ROOK];
 		// Semi-open and open file bonus
 		eval += rookFileBonus[openFile(b, sqr % 8)];
 	}
-	return eval;
+
+	ei.mg += (color == WHITE) ? eval : -eval;
+	ei.eg += (color == WHITE) ? eval : -eval;
 }
 
-int evaluateQueens(const Board& b, uint64_t queens, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color) {
+void evaluateQueens(const Board& b, EvalInfo& ei, int color) {
 	int eval = 0;
+	uint64_t queens = b.pieces[QUEEN] & b.colors[color];
 	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (queens) {
 		int sqr = popBit(queens);
-		uint64_t diagonalAttacks = *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr]);
-		uint64_t cardinalAttacks = *((((occ & rookBlockerMasks[sqr]) * rookMagics[sqr]) >> rookMagicShifts[sqr]) + rookMagicIndexIncrements[sqr]);
-		uint64_t attacks = (diagonalAttacks | cardinalAttacks) & ~b.colors[b.turn];
+		uint64_t attacks = (getBishopMagic(occ, sqr) | getRookMagic(occ, sqr)) & ~b.colors[b.turn];
 		// Mobility
-		eval += queenMobility[countBits(attacks & safeSquares)];
+		eval += queenMobility[countBits(attacks & ei.safeSquares[color])];
 		// Add to attack bitmap
-		attackSquares |= attacks;
+		ei.attackSquares[color] |= attacks;
 		// King attacks
-		int kingAttacks = countBits(attacks & enemyKingRing);
+		int kingAttacks = countBits(attacks & ei.kingRings[!color]);
 		eval += kingAttacks * kingAttackBonus;
 		eval += (kingAttacks > 0) * kingAttackerBonus[QUEEN];
 	}
-	return eval;
+	ei.mg += (color == WHITE) ? eval : -eval;
+	ei.eg += (color == WHITE) ? eval : -eval;
 }
 
-int evaluateKing(const Board& b, const int& sqr, const uint64_t& kingRing, const uint64_t& defendedSquares, const uint64_t& attackedSquares, int color, int phase) {
-	int eval = 0;
+void evaluateKing(const Board& b, EvalInfo& ei, int color) {
+	int mg = 0;
+	int eg = 0;
+
 	// We penalise weak squares near king (king ring squares that are attacked but not defended by our pieces or pawns)
-	eval -= countBits(attackedSquares & ~defendedSquares & kingRing) * weakSquarePenalty;
+	int weak = countBits(ei.attackSquares[!color] & ~ei.attackSquares[color] & ei.kingRings[color]) * weakSquarePenalty;
+	mg -= weak;
+	eg -= weak;
 
 	// We give a penalty if the king is on a semi-open or open file
-	eval -= taperedScore(kingFilePenalty[openFile(b, sqr % 8)], 0, phase);
+	mg -= kingFilePenalty[openFile(b, lsb(b.pieces[KING] & b.colors[color]) % 8)];
 
-	return eval;
+	ei.mg += (color == WHITE) ? mg : -mg;
+	ei.eg += (color == WHITE) ? eg : -eg;
+}
+
+void evaluateSpace(const Board& b, EvalInfo& ei, int color) {
+	int pieceCount = countBits(b.colors[color] & ~b.pieces[PAWN] & ~b.pieces[KING]);
+	uint64_t spaceArea = ei.safeSquares[color] & centerMasks[color] & b.colors[NO_COLOR];
+	int space = countBits(spaceArea) * std::max(pieceCount - 3, 0);
+	
+	ei.mg += (color == WHITE) ? space : -space;
+}
+
+void evaluateThreats(const Board& b, EvalInfo& ei, int color) {
+	int eval = 0;
+
+	// Step 1: Safe pawn threat
+	// We give a bonus for threats made by our safe pawns to non-pawn enemies
+	// A safe pawn is a pawn that is not attacked by enemies or defended by us
+	uint64_t safePawns = (ei.attackSquares[color] | ~ei.attackSquares[!color]) & b.pieces[PAWN] & b.colors[color];
+	uint64_t safePawnAttackSquares = (color == WHITE) ? (((safePawns << 7) & ~fileHMask) | ((safePawns << 9) & ~fileAMask)) :
+														(((safePawns >> 7) & ~fileAMask) | ((safePawns >> 9) & ~fileHMask));
+	eval += safePawnThreatBonus * countBits(safePawnAttackSquares & b.colors[!color] & ~b.pieces[PAWN]);
+	
+	ei.mg += (color == WHITE) ? eval : -eval;
+	ei.eg += (color == WHITE) ? eval : -eval;
 }
 
 int passed(const Board& b, int sqr, const uint64_t& enemyPawns, int color) {

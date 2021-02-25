@@ -68,7 +68,7 @@ void genBishopMoves(const Board& b, std::vector<uint16_t>& moves, bool noisyOnly
 	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (bishops) {
 		int sqr = popBit(bishops);
-		uint64_t bb = *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr]);
+		uint64_t bb = getBishopMagic(occ, sqr);
 		bb &= ~b.colors[b.turn] & ~b.pieces[KING];
 		if (noisyOnly) bb &= b.colors[!b.turn];
 		addPieceMoves(moves, bb, sqr);
@@ -80,7 +80,7 @@ void genRookMoves(const Board& b, std::vector<uint16_t>& moves, bool noisyOnly) 
 	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (rooks) {
 		int sqr = popBit(rooks);
-		uint64_t bb = *((((occ & rookBlockerMasks[sqr]) * rookMagics[sqr]) >> rookMagicShifts[sqr]) + rookMagicIndexIncrements[sqr]);
+		uint64_t bb = getRookMagic(occ, sqr);
 		bb &= ~b.colors[b.turn] & ~b.pieces[KING];
 		if (noisyOnly) bb &= b.colors[!b.turn];
 		addPieceMoves(moves, bb, sqr);
@@ -92,9 +92,7 @@ void genQueenMoves(const Board& b, std::vector<uint16_t>& moves, bool noisyOnly)
 	const uint64_t occ = ~b.colors[NO_COLOR];
 	while (queens) {
 		int sqr = popBit(queens);
-		uint64_t bbb = *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr]);
-		uint64_t rbb = *((((occ & rookBlockerMasks[sqr]) * rookMagics[sqr]) >> rookMagicShifts[sqr]) + rookMagicIndexIncrements[sqr]);
-		uint64_t bb = (bbb | rbb) & (~b.colors[b.turn] & ~b.pieces[KING]);
+		uint64_t bb = (getBishopMagic(occ, sqr) | getRookMagic(occ, sqr)) & (~b.colors[b.turn] & ~b.pieces[KING]);
 		if (noisyOnly) bb &= b.colors[!b.turn];
 		addPieceMoves(moves, bb, sqr);
 	}

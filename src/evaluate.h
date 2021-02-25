@@ -3,6 +3,15 @@
 
 #include "types.h"
 
+struct EvalInfo {
+	int mg = 0;
+	int eg = 0;
+	uint64_t kingRings[2];
+	uint64_t pawns[2];
+	uint64_t safeSquares[2]; // Squares not attacked by enemy pawns
+	uint64_t attackSquares[2]; // Squares attacked by any of our pieces
+};
+
 static inline int taperedScore(int mg, int eg, int phase) {
 	return (mg * phase + eg * (24 - phase)) / 24;
 }
@@ -121,7 +130,7 @@ static constexpr int kingPSQT[2][32] = {
 
 static constexpr int psqtFileTable[8] = { 0, 1, 2, 3, 3, 2, 1, 0 };
 
-static constexpr int spacePhaseLimit = 128;
+static constexpr int spacePhaseLimit = 12;
 
 static constexpr int supportedPawnBonus = 20;
 static constexpr int phalanxPawnBonus = 20;
@@ -185,15 +194,15 @@ int psqtScore(int piece, int sqr, int phase);
 
 int evaluate(const Board& b, int color);
 
-int evaluateSpace(const Board& b, const uint64_t& safeSquares, const int& color, const int& phase);
-int evaluateThreats(const Board&b, const uint64_t& defendedSquares, const uint64_t& attackedSquares, const int& color);
+void evaluatePawns(const Board& b, EvalInfo& ei, int color);
+void evaluateKnights(const Board& b, EvalInfo& ei, int color);
+void evaluateBishops(const Board& b, EvalInfo& ei, int color);
+void evaluateRooks(const Board& b, EvalInfo& ei, int color);
+void evaluateQueens(const Board& b, EvalInfo& ei, int color);
+void evaluateKing(const Board& b, EvalInfo& ei, int color);
 
-int evaluatePawns(const Board& b, uint64_t pawns, const uint64_t& enemyPawns, const uint64_t& enemyKingRing, int color, int phase);
-int evaluateKnights(const Board& b, uint64_t knights, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares);
-int evaluateBishops(const Board& b, uint64_t bishops, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color);
-int evaluateRooks(const Board& b, uint64_t rooks, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color);
-int evaluateQueens(const Board& b, uint64_t queens, const uint64_t& safeSquares, const uint64_t& enemyKingRing, uint64_t& attackSquares, int color);
-int evaluateKing(const Board& b, const int& sqr, const uint64_t& kingRing, const uint64_t& defendedSquares, const uint64_t& attackedSquares, int color, int phase);
+void evaluateSpace(const Board& b, EvalInfo& ei, int color);
+void evaluateThreats(const Board& b, EvalInfo& ei, int color);
 
 int passed(const Board& b, int sqr, const uint64_t& enemyPawns, int color);
 bool isPassed(const Board&b, int sqr, int color);

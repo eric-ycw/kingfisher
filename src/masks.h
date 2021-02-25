@@ -147,4 +147,7 @@ void initKingRing();
 
 void initMasks();
 
+#define getBishopMagic(occ, sqr) *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr])
+#define getRookMagic(occ, sqr) *((((occ & rookBlockerMasks[sqr]) * rookMagics[sqr]) >> rookMagicShifts[sqr]) + rookMagicIndexIncrements[sqr])
+
 #endif

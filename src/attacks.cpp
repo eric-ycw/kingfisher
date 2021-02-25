@@ -156,23 +156,19 @@ uint64_t getQueenAttacks(const Board& b, const uint64_t& valid, int color, int s
 bool squareIsAttacked(const Board& b, int color, int sqr) {
 	const uint64_t enemy = b.colors[!color];
 	const uint64_t occ = ~b.colors[NO_COLOR];
-	uint64_t diagonalAttacks = *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr]);
-	uint64_t cardinalAttacks = *((((occ & rookBlockerMasks[sqr]) * rookMagics[sqr]) >> rookMagicShifts[sqr]) + rookMagicIndexIncrements[sqr]);
 	return (pawnAttacks[sqr][color] & enemy & b.pieces[PAWN])
 		|| (knightAttacks[sqr] & enemy & b.pieces[KNIGHT])
-		|| (diagonalAttacks & enemy & (b.pieces[BISHOP] | b.pieces[QUEEN]))
-		|| (cardinalAttacks & enemy & (b.pieces[ROOK] | b.pieces[QUEEN]))
+		|| (getBishopMagic(occ, sqr) & enemy & (b.pieces[BISHOP] | b.pieces[QUEEN]))
+		|| (getRookMagic(occ, sqr) & enemy & (b.pieces[ROOK] | b.pieces[QUEEN]))
 		|| (kingAttacks[sqr] & enemy & b.pieces[KING]);
 }
 
 uint64_t squareAttackers(const Board& b, int color, int sqr) {
 	const uint64_t occ = ~b.colors[NO_COLOR];
-	uint64_t diagonalAttacks = *((((occ & bishopBlockerMasks[sqr]) * bishopMagics[sqr]) >> bishopMagicShifts[sqr]) + bishopMagicIndexIncrements[sqr]);
-	uint64_t cardinalAttacks = *((((occ & rookBlockerMasks[sqr]) * rookMagics[sqr]) >> rookMagicShifts[sqr]) + rookMagicIndexIncrements[sqr]);
 	return ((pawnAttacks[sqr][color] & b.pieces[PAWN])
 		 | (knightAttacks[sqr] & b.pieces[KNIGHT])
-		 | (diagonalAttacks & (b.pieces[BISHOP] | b.pieces[QUEEN]))
-		 | (diagonalAttacks & (b.pieces[ROOK] | b.pieces[QUEEN]))
+		 | (getBishopMagic(occ, sqr) & (b.pieces[BISHOP] | b.pieces[QUEEN]))
+		 | (getRookAttacks(occ, sqr) & (b.pieces[ROOK] | b.pieces[QUEEN]))
 		 | (kingAttacks[sqr] & b.pieces[KING])) & b.colors[!color];
 }
 
