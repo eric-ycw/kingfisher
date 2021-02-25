@@ -4,7 +4,7 @@
 #include "types.h"
 
 static inline int taperedScore(int mg, int eg, int phase) {
-	return (mg * phase + eg * (256 - phase)) / 256;
+	return (mg * phase + eg * (24 - phase)) / 24;
 }
 
 constexpr int materialSum = (400 * 2 + 420 * 2 + 650 * 2 + 1350) * 2;

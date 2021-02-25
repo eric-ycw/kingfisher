@@ -1,13 +1,8 @@
 #include "bitboard.h"
 #include "types.h"
 
-int countBits(uint64_t b) {
-	int r = 0;
-	while (b!= 0) {
-		b &= (b - 1);
-		r++;
-	}
-	return r;
+int countBits(const uint64_t& b) {
+	return __builtin_popcountll(b);
 }
 
 bool checkBit(const uint64_t& b, int sqr) {
@@ -15,21 +10,12 @@ bool checkBit(const uint64_t& b, int sqr) {
 	return (b & (1ull << sqr)) > 0;
 }
 
-inline int lsb(const uint64_t& b) {
+int lsb(const uint64_t& b) {
 	return __builtin_ctzll(b);
 }
 
-// De Bruijn multiplication
 int msb(const uint64_t& b) {
-	if (!b) return 0;
-	uint64_t bb = b;
-	bb |= bb >> 1;
-	bb |= bb >> 2;
-	bb |= bb >> 4;
-	bb |= bb >> 8;
-	bb |= bb >> 16;
-	bb |= bb >> 32;
-	return msbTable[(bb * 0x03f79d71b4cb0a89) >> 58];
+	return __builtin_clzll(b) ^ 63;
 }
 
 int generalBitscan(const uint64_t& b, const int dir) {

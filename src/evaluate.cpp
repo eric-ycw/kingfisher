@@ -39,17 +39,13 @@ int evaluate(const Board& b, int color) {
 	}
 	eval += whiteMaterial - blackMaterial;
 
-	// Step 2a: Non-king piece-square tables
-	// A basic evaluation of the placement of pieces (e.g. knights are bad near corners)
+	// Step 2: Piece-square tables
+	// A basic evaluation of the placement of pieces
 	eval += taperedScore(b.psqt[MG], b.psqt[EG], phase);
 
-	// Step 2b: King piece-square table
-	// In the middlegame, the king is best placed near the corners of the board
-	// In the endgame, the king is best placed in the middle of the board
+	// King attack info
 	int whiteKingSqr = lsb(b.pieces[KING] & b.colors[WHITE]);
 	int blackKingSqr = lsb(b.pieces[KING] & b.colors[BLACK]);
-
-	// King attack info
 	uint64_t whiteKingRing = kingRing[whiteKingSqr];
 	uint64_t blackKingRing = kingRing[blackKingSqr];
 	
@@ -286,11 +282,9 @@ int openFile(const Board& b, int file) {
 }
 
 int getPhase(const Board& b) {
-	// Game phase is normalized between 256 (middlegame) and 0 (endgame)
-	int material = 0;
+	// Game phase is normalized between 24 (middlegame) and 0 (endgame)
 	// We do not consider pawns in calculating game phase
-	for (int i = KNIGHT; i <= QUEEN; ++i) {
-		material += pieceValues[i][MG] * countBits(b.pieces[i]);
-	}
-	return std::min((material * 256 + (materialSum / 2)) / materialSum, 256);
+	return std::min(countBits(b.pieces[KNIGHT] | b.pieces[BISHOP])
+	           + 2 * countBits(b.pieces[ROOK])
+			   + 4 * countBits(b.pieces[QUEEN]), 24);
 }
