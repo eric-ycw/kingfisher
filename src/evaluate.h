@@ -142,19 +142,19 @@ static constexpr int passedBlockedBonus[7][2] = {
 	{passedBonus[6][0] / passedBlockReduction, passedBonus[6][1] / passedBlockReduction}
 };
 
-static constexpr int knightMobility[28]
+static constexpr int knightMobility[9]
 {
-	-50, -35, -10, 0, 5, 10, 15, 20, 25
+	-80, -35, -15, -5, 5, 10, 15, 22, 35
 };
 
 static constexpr int bishopMobility[14]
 {
-	-50, -30, -5, 5, 10, 15, 20, 24, 28, 32, 34, 36, 38, 40
+	-70, -40, -15, -5, 6, 15, 20, 24, 26, 28, 30, 38, 50, 75
 };
 
 static constexpr int rookMobility[15]
 {
-	-40, -24, -12, -8, -4, 2, 7, 12, 16, 20, 23, 26, 29, 31, 34
+	-100, -60, -25, -12, -5, 2, 7, 12, 16, 20, 23, 26, 29, 35, 50
 };
 
 static constexpr int queenMobility[28]
