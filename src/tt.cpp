@@ -19,8 +19,8 @@ int probeTT(const uint64_t& key, const int& depth, const int& alpha, const int& 
 	for (int i = 0; i < 4; ++i) {
 		auto& entry = tt[index + i];
 		if (entry.key == (key >> 32)) {
-			if (entry.depth < depth) return NO_VALUE;
 			ttEval = entry.eval;
+			if (entry.depth < depth) return NO_VALUE;
 			int score = entry.score;
 			if (score == NO_VALUE) return NO_VALUE;
 			if (score >= MATE_IN_MAX) score += entry.ply - ply;
