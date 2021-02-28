@@ -168,7 +168,7 @@ static constexpr int futilityMaxDepth = 3;
 static constexpr int futilityMargin = 75;
 static constexpr int deltaMargin = 125;
 
-static constexpr int seeMargin = 200;
+static constexpr int seeMargin = 150;
 
 static constexpr int lateMoveMinDepth = 3;
 

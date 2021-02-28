@@ -281,7 +281,8 @@ int search(Board& b, int depth, int ply, int alpha, int beta, SearchInfo& si, ui
 		}
 
 		// Step 12: Do a complete search if we are searching for the first time/the reduced search from LMR raised alpha
-		if (score > alpha) score = -search(b, depth - 1, ply + 1, -beta, -alpha, si, pv);
+		// We also extend our search by one ply if we are in check
+		if (score > alpha) score = -search(b, depth - 1 + (isInCheck), ply + 1, -beta, -alpha, si, pv);
 
 		undoMove(b, m, u);
 
@@ -440,8 +441,8 @@ int qsearch(Board& b, int ply, int alpha, int beta, SearchInfo& si, uint16_t (&p
 
 int staticExchangeEvaluation(const Board& b, const uint16_t& m, int threshold) {
 
-	int from = moveFrom(m);
-	int to = moveTo(m);
+	const int from = moveFrom(m);
+	const int to = moveTo(m);
 
 	int nextVictim = (moveFlag(m) >= PROMOTION_KNIGHT) ? moveFlag(m) - 2 : pieceType(b.squares[from]);
 
@@ -452,9 +453,6 @@ int staticExchangeEvaluation(const Board& b, const uint16_t& m, int threshold) {
 
 	int victim = pieceType(b.squares[to]);
 	int victimVal = SEEValues[victim];
-
-	uint64_t bishops = b.pieces[BISHOP] | b.pieces[QUEEN];
-	uint64_t rooks = b.pieces[ROOK] | b.pieces[QUEEN];
 
 	uint64_t occupied = ~b.colors[NO_COLOR];
 	occupied ^= (1ull << from) ^ (1ull << to);
@@ -472,12 +470,12 @@ int staticExchangeEvaluation(const Board& b, const uint16_t& m, int threshold) {
 
 		// Check for discovered diagonal attacks
 		if (nextVictim == PAWN || nextVictim == BISHOP || nextVictim == QUEEN) {
-			allAttackers |= getBishopAttacks(occupied, to) & bishops;
+			allAttackers |= getBishopAttacks(occupied, to) & (b.pieces[BISHOP] | b.pieces[QUEEN]);
 		}
 
 		// Check for discovered horizontal/vertical attacks
 		if (nextVictim == ROOK || nextVictim == QUEEN) {
-			allAttackers |= getRookAttacks(occupied, to) & rooks;
+			allAttackers |= getRookAttacks(occupied, to) & (b.pieces[ROOK] | b.pieces[QUEEN]);
 		}
 
 		side = !side;
