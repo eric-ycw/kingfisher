@@ -120,7 +120,7 @@ static constexpr int kingPSQT[2][32] = {
 	-50,-50,-60,-60,
 	-10,-10,-30,-30,
 	-5,-10,-20,-20,
-	30,40,-20,-10},
+	60,60,-30,-10},
 
 	{-99,-80,-50,-50,
 	-70,-50,0,0,
@@ -178,6 +178,7 @@ static constexpr int queenMobility[28]
 static constexpr int kingAttackWeight[5] = { 0, 1, 1, 2, 4 };
 static constexpr int kingAttackPenalty = 60;
 static constexpr int kingAttackerWeight[8] = { 0, 0, 12, 18, 20, 22, 24, 24 };
+static constexpr int kingShelterBonus[6] = { 0, 50, 80, 100, 110, 110 };
 static constexpr int weakSquarePenalty = 0; // FIXME: Elo loss
 static constexpr int kingFilePenalty[3] = { 0, 15, 40 };
 

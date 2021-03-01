@@ -257,7 +257,16 @@ void evaluateKing(const Board& b, EvalInfo& ei, int color) {
 	int mg = 0;
 	int eg = 0;
 
+	int kingSquare = lsb(b.pieces[KING] & b.colors[color]);
+
+	// We give a penalty if our king ring is attacked by enemy pieces
+	// The penalty follows a sigmoid curve with the number of attacking pieces
 	mg -= ei.kingAttackCount[!color] * kingAttackPenalty * kingAttackerWeight[std::min(ei.kingAttackerCount[!color], 7)] / 24;
+
+
+	uint64_t shelter = ei.kingRings[color] & rankMasks[kingSquare / 8 + ((color == WHITE) ? 1 : -1)] & ~(rank1Mask | rank8Mask) |
+						(((1ull << kingSquare) >> 1) & ~fileHMask) | (((1ull << kingSquare) << 1) & ~fileAMask);
+	mg += kingShelterBonus[countBits(shelter & b.pieces[PAWN] & b.colors[color])];
 
 	// We penalise weak squares near king (king ring squares that are attacked but not defended by our pieces or pawns)
 	// int weak = countBits(ei.attackSquares[!color] & ~ei.attackSquares[color] & ei.kingRings[color]) * weakSquarePenalty;
@@ -265,7 +274,7 @@ void evaluateKing(const Board& b, EvalInfo& ei, int color) {
 	// eg -= weak;
 
 	// We give a penalty if the king is on a semi-open or open file
-	mg -= kingFilePenalty[openFile(b, lsb(b.pieces[KING] & b.colors[color]) % 8)];
+	mg -= kingFilePenalty[openFile(b, kingSquare % 8)];
 
 	ei.mg += (color == WHITE) ? mg : -mg;
 	ei.eg += (color == WHITE) ? eg : -eg;
