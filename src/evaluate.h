@@ -6,6 +6,10 @@
 struct EvalInfo {
 	int mg = 0;
 	int eg = 0;
+
+	int kingAttackCount[2] = { 0, 0 };
+	int kingAttackerCount[2] = { 0, 0 };
+
 	uint64_t kingRings[2];
 	uint64_t pawns[2];
 	uint64_t safeSquares[2]; // Squares not attacked by enemy pawns
@@ -171,8 +175,9 @@ static constexpr int queenMobility[28]
 	-30, -20, -10, -5, 0, 5, 9, 12, 15, 18, 21, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 44, 45, 45, 46, 46, 46
 };
 
-static constexpr int kingAttackBonus = 12;
-static constexpr int kingAttackerBonus[5] = { 20, 40, 35, 30, 10 };
+static constexpr int kingAttackWeight[5] = { 0, 1, 1, 2, 4 };
+static constexpr int kingAttackPenalty = 60;
+static constexpr int kingAttackerWeight[8] = { 0, 0, 12, 18, 20, 22, 24, 24 };
 static constexpr int weakSquarePenalty = 0; // FIXME: Elo loss
 static constexpr int kingFilePenalty[3] = { 0, 15, 40 };
 

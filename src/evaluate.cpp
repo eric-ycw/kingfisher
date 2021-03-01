@@ -142,9 +142,6 @@ void evaluatePawns(const Board& b, EvalInfo& ei, int color) {
 		bool blocked = (b.squares[sqr + (color == WHITE) * 8] == EMPTY);
 		mg += blocked ? passedBonus[passedRank][MG] : passedBlockedBonus[passedRank][MG];
 		eg += blocked ? passedBonus[passedRank][EG] : passedBlockedBonus[passedRank][EG];
-
-		// King attacks
-		mg += countBits(pawnAttacks[sqr][color] & ei.kingRings[!color]) * kingAttackerBonus[PAWN];
 	}
 
 	ei.mg += (color == WHITE) ? mg : -mg;
@@ -163,9 +160,9 @@ void evaluateKnights(const Board& b, EvalInfo& ei, int color) {
 		ei.attackSquares[color] |= attacks;
 
 		// King attacks
-		int kingAttacks = countBits(attacks & ei.kingRings[!color]);
-		eval += kingAttacks * kingAttackBonus;
-		eval += (kingAttacks > 0) * kingAttackerBonus[KNIGHT];
+		bool kingAttacker = (countBits(attacks & ei.kingRings[!color]) > 0);
+		ei.kingAttackCount[color] += kingAttacker * kingAttackWeight[KNIGHT];
+		ei.kingAttackerCount[color] += kingAttacker;
 	}
 	
 	ei.mg += (color == WHITE) ? eval : -eval;
@@ -194,9 +191,10 @@ void evaluateBishops(const Board& b, EvalInfo& ei, int color) {
 		eval += bishopMobility[countBits(attacks & ei.safeSquares[color])];
 
 		// King attacks
-		int kingAttacks = countBits(attacks & ei.kingRings[!color]);
-		eval += kingAttacks * kingAttackBonus;
-		eval += (kingAttacks > 0) * kingAttackerBonus[BISHOP];
+		bool kingAttacker = (countBits(attacks & ei.kingRings[!color]) > 0);
+		ei.kingAttackCount[color] += kingAttacker * kingAttackWeight[BISHOP];
+		ei.kingAttackerCount[color] += kingAttacker;
+
 		count++;
 	}
 	// Bishop pair bonus
@@ -216,12 +214,15 @@ void evaluateRooks(const Board& b, EvalInfo& ei, int color) {
 		attacks &= ~b.colors[b.turn];
 		// Mobility
 		eval += rookMobility[countBits(attacks & ei.safeSquares[color])];
+
 		// Add to attack bitmap
 		ei.attackSquares[color] |= attacks;
+
 		// King attacks
-		int kingAttacks = countBits(attacks & ei.kingRings[!color]);
-		eval += kingAttacks * kingAttackBonus;
-		eval += (kingAttacks > 0) * kingAttackerBonus[ROOK];
+		bool kingAttacker = (countBits(attacks & ei.kingRings[!color]) > 0);
+		ei.kingAttackCount[color] += kingAttacker * kingAttackWeight[ROOK];
+		ei.kingAttackerCount[color] += kingAttacker;
+
 		// Semi-open and open file bonus
 		eval += rookFileBonus[openFile(b, sqr % 8)];
 	}
@@ -239,12 +240,14 @@ void evaluateQueens(const Board& b, EvalInfo& ei, int color) {
 		uint64_t attacks = (getBishopMagic(occ, sqr) | getRookMagic(occ, sqr)) & ~b.colors[b.turn];
 		// Mobility
 		eval += queenMobility[countBits(attacks & ei.safeSquares[color])];
+
 		// Add to attack bitmap
 		ei.attackSquares[color] |= attacks;
+
 		// King attacks
-		int kingAttacks = countBits(attacks & ei.kingRings[!color]);
-		eval += kingAttacks * kingAttackBonus;
-		eval += (kingAttacks > 0) * kingAttackerBonus[QUEEN];
+		bool kingAttacker = (countBits(attacks & ei.kingRings[!color]) > 0);
+		ei.kingAttackCount[color] += kingAttacker * kingAttackWeight[QUEEN];
+		ei.kingAttackerCount[color] += kingAttacker;
 	}
 	ei.mg += (color == WHITE) ? eval : -eval;
 	ei.eg += (color == WHITE) ? eval : -eval;
@@ -254,10 +257,12 @@ void evaluateKing(const Board& b, EvalInfo& ei, int color) {
 	int mg = 0;
 	int eg = 0;
 
+	mg -= ei.kingAttackCount[!color] * kingAttackPenalty * kingAttackerWeight[std::min(ei.kingAttackerCount[!color], 7)] / 24;
+
 	// We penalise weak squares near king (king ring squares that are attacked but not defended by our pieces or pawns)
-	int weak = countBits(ei.attackSquares[!color] & ~ei.attackSquares[color] & ei.kingRings[color]) * weakSquarePenalty;
-	mg -= weak;
-	eg -= weak;
+	// int weak = countBits(ei.attackSquares[!color] & ~ei.attackSquares[color] & ei.kingRings[color]) * weakSquarePenalty;
+	// mg -= weak;
+	// eg -= weak;
 
 	// We give a penalty if the king is on a semi-open or open file
 	mg -= kingFilePenalty[openFile(b, lsb(b.pieces[KING] & b.colors[color]) % 8)];
